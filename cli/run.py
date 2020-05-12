@@ -8,6 +8,12 @@ import glob
 import yaml 
 import os
 import json
+from cli import ecube_hooks as eh
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+import traceback
 # Set your users information in the list below
 USERS = [
 ]
@@ -26,6 +32,27 @@ APPSYNC_SUB_MGRS_MAP = {}
 
 # Cutoff size to gzip commands
 CUTOFF_SIZE = 10 * 1024
+
+def exec_full(filepath, logger):
+    ret_val = True
+    import os
+    global_namespace = {
+      "__file__": filepath,
+      "__name__": "__main__",
+    }
+
+    with open(filepath, 'rb') as file:
+        try:
+            exec(compile(file.read(), filepath, 'exec'), global_namespace)
+        except SystemExit as e:
+            logger(cf.Logger.ERROR, "caught exit: code: %r" % (e))
+            if str(e) == '-1':
+                # TODO: ret_val should be set to False, but if we do that
+                # then the meta playbook does not get 'task<ID>_result'
+                # for e.g. YaqlEvaluationException: Unable to resolve key ''task2_result'' in expression ''<% ctx().task2_result %>'' from context.
+                # So for now, we set it to True will we fix the meta playbook
+                ret_val = True
+    return ret_val
 
 class Run():
     def __init__(self, args=None):
@@ -57,25 +84,84 @@ class Run():
         self.loadConnector()
         
         CURRENT_ENV = self.args.login
+        USERS.append({'username': self.args.username, 'password': self.args.password})
         cf.gql_main_loop(CURRENT_ENV, self.logger, USERS, BLACKLISTED_TOKENS,
         USER_LIST, USER_DICT, USERNAME_DICT, SLEEP_TIME,
         [
-         (S.SUBSCRIPTIONS['onupdateallworkflows'], updateWorkflow),
+         (S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_new_sandbox_execution),
         ], APPSYNC_SUB_MGRS_MAP,
-        on_error, on_sub_error, on_connection_error, on_close, self.on_subscription_success)
+        self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success)
 
     def loadConnector(self):
         dir_name = self.args.directory
-        print ("Reading from: ", dir_name)
+        self.logger.log(cf.Logger.DEBUG, "Reading from: " + dir_name)
         files = get_integration_files(dir_name)
         for tmp_file in files:
-            f = parse_file(tmp_file, dir_name)
+            f = parse_file(tmp_file, dir_name, self.logger)
             self.logger.log(cf.Logger.INFO, "read connector %s " %  f)
             self.connector = f 
     def on_subscription_success(self, cb_data, sub):
         self.logger.log(cf.Logger.INFO, "Got subscription success...")
         self.findAllConnectors(cb_data)
 
+    def on_error(self, error, cb_data):
+        self.logger.log(cf.Logger.ERROR, "GOT ERROR: %r" % (error))
+
+    def on_sub_error(self, error, cb_data):
+        self.logger.log(cf.Logger.ERROR, "GOT SUBSCRIPTION ERROR: %r" % (error))
+
+    def cleanup_sub_mgr(self, cb_data):
+        if cb_data['endpoint'] not in BLACKLISTED_TOKENS:
+            BLACKLISTED_TOKENS[cb_data['endpoint']] = {}
+
+        BLACKLISTED_TOKENS[cb_data['endpoint']][cb_data['username']] = cb_data['id_token']
+        self.logger.log(cf.Logger.INFO, "Blacklisted token: EP: %s U: %s" % (cb_data['endpoint'], cb_data['username']))
+        tmp_cb_data = APPSYNC_SUB_MGRS_MAP.pop(cb_data['endpoint'], None)
+        tmp_cb_data['manager'].close()
+
+    def on_connection_error(self, error, cb_data):
+        self.logger.log(cf.Logger.ERROR, "GOT CONNECTION ERROR: %r" % (error))
+        self.cleanup_sub_mgr(cb_data)
+
+    def on_close(self, cb_data):
+        print("Run: GOT SOCKET CLOSE")
+        #cleanup_sub_mgr(cb_data)
+
+    def handle_new_sandbox_execution(self, message, cb_data):
+        upd_status = "DONE"
+        try:
+            cf.update_cb_data(cb_data, self.logger)
+            val = message['data']['onCreateEcubeSandboxExecution']
+            self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
+            data = json.loads(val['E3One'])
+            eh.setExecData(data)
+            os.environ['ECUBE_HOOKS_PATH'] = os.getcwd() + "/cli"
+            exec_full(data['args']['script_path'], self.logger)
+            o = eh.getExecOutput()
+        except Exception:
+            tb_output = StringIO()
+            traceback.print_exc(file=tb_output)
+            tmp_output = tb_output.getvalue()
+            self.logger.log(cf.Logger.ERROR, tmp_output)
+            o = tb_output.getvalue()
+            upd_status = "ERROR"
+
+        try:
+            update_dict = {
+                'id': val['id'],
+                'output': o,
+                'status': upd_status
+            }
+
+            _ = cf.execute_function_with_retry(cf.update_obj,
+                (cb_data['endpoint'], cb_data['id_token'], "EcubeSandboxExecution", update_dict),
+                {}, cb_data['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
+                USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
+        except Exception:
+            tb_output = StringIO()
+            traceback.print_exc(file=tb_output)
+            tmp_output = tb_output.getvalue()
+            self.logger.log(cf.Logger.ERROR, tmp_output)
 
 def get_files(file_pattern):
     return glob.glob(file_pattern)
@@ -88,16 +174,19 @@ def get_integration_files(dir_name):
     return f 
 # Parse a given YAML file and store its dictionary in the
 # PARSED_CONNECTORS_DICT object
-def parse_file(file_name, dir_name):
-    print("Reading ", file_name, dir_name)
+def parse_file(file_name, dir_name, logger):
+    logger.log(cf.Logger.log, "Reading FILE: %s DIR: %s" % (file_name, dir_name))
     with open(file_name, 'r') as stream:
         try:
-            print "Parsing: %s" % (file_name)
+            logger.log(cf.Logger.DEBUG, "Parsing: %s" % (file_name))
             f = yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            print str(exc)
+        except yaml.YAMLError:
+            tb_output = StringIO()
+            traceback.print_exc(file=tb_output)
+            tmp_output = tb_output.getvalue()
+            logger.log(cf.Logger.ERROR, tmp_output)
         
-    c = get_connector_dict(f, file_name, dir_name)
+    c = get_connector_dict(f, file_name, dir_name, logger)
     return c 
 
 INTEGRATION_SOURCE="developer"
@@ -111,7 +200,7 @@ def get_script_type_extension(file_type):
     else:
         return None
 
-def get_script_file_name(file_name, file_type, write):
+def get_script_file_name(file_name, file_type, write, logger):
     tmp_f = file_name
 
     if os.path.basename(file_name).startswith("integration-"):
@@ -120,7 +209,7 @@ def get_script_file_name(file_name, file_type, write):
     extension = get_script_type_extension(file_type)
 
     if not extension:
-        print "ERROR: Could not find extension for file NAME: %s TYPE: %s" % (file_name, file_type)
+        logger.log(cf.Logger.ERROR, "Could not find extension for file NAME: %s TYPE: %s" % (file_name, file_type))
         return None
 
     tmp_f = tmp_f[:-4] + extension
@@ -131,7 +220,7 @@ def get_script_file_name(file_name, file_type, write):
     return tmp_f
 
 # Create a dictionary formatted for the storing in DynamoDB for the parsed file
-def get_connector_dict(parsed_file_dict, file_name, dir_name):
+def get_connector_dict(parsed_file_dict, file_name, dir_name, logger):
     tmp_dict = {}
 
     try:
@@ -141,7 +230,7 @@ def get_connector_dict(parsed_file_dict, file_name, dir_name):
         tmp_dict['source'] = INTEGRATION_SOURCE
         tmp_dict['md5'] = cf.get_file_md5sum(file_name)
     except Exception as e:
-        print "ERROR: Missing required param: %s" % (str(e))
+        logger.log(cf.Logger.ERROR, "Missing required param: %r" % (e))
         return None
 
 
@@ -152,20 +241,15 @@ def get_connector_dict(parsed_file_dict, file_name, dir_name):
 
         if 'script' in parsed_file_dict['script']:
             tmp_dict['script'] = parsed_file_dict['script']['script']
-            tmp_var = tmp_dict['script'].strip()
 
-            if ((tmp_var == "") or
-                (tmp_var == "-")):
-                # Script is empty. Try to find and load the script
-                script_file_name = get_script_file_name(file_name, tmp_dict['scriptType'], False)
+            # Script is empty. Try to find and load the script
+            script_file_name = get_script_file_name(file_name, tmp_dict['scriptType'], False, logger)
 
-                if script_file_name:
-                    tmp_dict['script'] = cf.read_file(script_file_name, False)
-                else:
-                    print "ERROR: Could not parse script file name for: %s" % (file_name)
-                    sys.exit(-1)
+            if not script_file_name:
+                logger.log(cf.Logger.ERROR, "Could not parse script file name for: %s" % (file_name))
+                sys.exit(-1)
 
-            tmp_dict['scriptPath'] = "something else.py"
+            tmp_dict['scriptPath'] = script_file_name
 
             # Don't need to put script in DynamoDB
             tmp_dict.pop('script', None)
@@ -188,31 +272,4 @@ def get_connector_dict(parsed_file_dict, file_name, dir_name):
         tmp_dict['configuration'] = json.dumps(parsed_file_dict['configuration'], separators=(',', ':'))
 
     return tmp_dict
-
-def updateWorkflow(message, cb_data):
-    cf.update_cb_data(cb_data, self.logger)
-    val = message['data']['onUpdateAllWorkflows']
-    print(val)
-def on_error(error, cb_data):
-    print("GOT ERROR: %r" % (error))
-
-def on_sub_error(error, cb_data):
-    print("GOT SUBSCRIPTION ERROR: %r" % (error))
-
-def cleanup_sub_mgr(cb_data):
-    if cb_data['endpoint'] not in BLACKLISTED_TOKENS:
-        BLACKLISTED_TOKENS[cb_data['endpoint']] = {}
-
-    BLACKLISTED_TOKENS[cb_data['endpoint']][cb_data['username']] = cb_data['id_token']
-    MY_LOGGER.log(cf.Logger.INFO, "Blacklisted token: EP: %s U: %s" % (cb_data['endpoint'], cb_data['username']))
-    tmp_cb_data = APPSYNC_SUB_MGRS_MAP.pop(cb_data['endpoint'], None)
-    tmp_cb_data['manager'].close()
-
-def on_connection_error(error, cb_data):
-    print("GOT CONNECTION ERROR: %r" % (error))
-    cleanup_sub_mgr(cb_data)
-
-def on_close(cb_data):
-    print("AutoTasks: GOT SOCKET CLOSE")
-    #cleanup_sub_mgr(cb_data)
 
