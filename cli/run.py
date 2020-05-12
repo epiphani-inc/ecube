@@ -149,7 +149,7 @@ class Run():
         try:
             update_dict = {
                 'id': val['id'],
-                'output': o,
+                'output': json.dumps(o, separators=(',', ':')), 
                 'status': upd_status
             }
 
