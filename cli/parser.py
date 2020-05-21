@@ -1,25 +1,71 @@
 import argparse
+import configparser
+import sys
 from run  import Run
+import os
+class MyParser(object):
+
+    def __init__(self):
+        self.config_args = {}
+        parser = argparse.ArgumentParser(
+            description='e3 (ecube) -> epiphani execution engine',
+            usage='''e3 <command> [<args>]
+The following commands are supported:
+    run      Run a local connector
+    playbook Interact with the playbook engine 
+    
+Please create a config file ~/.e3.ini with following content:
+[DEFAULT]
+username = <epiphani username>
+password = <epiphani password> 
+login = URL to epiphani
+log_file = foo.log
+''')
+        config = configparser.ConfigParser()
+        FN = os.path.expanduser('~/.e3.ini')
+        config.read(FN)
+        for key in config['DEFAULT']:
+            self.config_args[key] = config['DEFAULT'][key]
+        parser.add_argument('command', help='Subcommand to run')
+        # parse_args defaults to [1:] for args, but you need to
+        # exclude the rest of the args too, or validation will fail
+        args = parser.parse_args(sys.argv[1:2])
+        if not hasattr(self, args.command):
+            print 'Unrecognized command'
+            parser.print_help()
+            exit(1)
+        # use dispatch pattern to invoke method with same name
+        getattr(self, args.command)()
+
+    def addKeys(self, args):
+        d = vars(args)
+        for key in self.config_args:
+            d[key] = self.config_args[key]
+
+    def run(self):
+        parser = argparse.ArgumentParser(description='Run the commands')
+        parser.add_argument('--directory', required=True, help='the path to the connector')
+        args = parser.parse_args(sys.argv[2:])
+        self.addKeys(args)
+        runCommand(args)
+
+    def playbook(self):
+        parser = argparse.ArgumentParser(
+            description="playbook sub commands")
+        s1 = parser.add_subparsers(title="commands", dest="command")
+        s1.add_parser("show", help="show all the playbooks")
+        s1.add_parser("run", help="run the playbooks")
+        args = parser.parse_args(sys.argv[2:])
+        print 'Playbook args', args.command
+        
 def runCommand(args):
     #validate args 
     print ("Run Commands called", args)
     x = Run(args)
     x.Execute()
 
+def showPlaybook(args):
+    print("Show playbooks", args)
+
 def main():
-    parser = argparse.ArgumentParser(description='e3 (ecube) -> epiphani execution engine')
-    parser.add_argument('-l', '--login', required=True, help='login url')
-    parser.add_argument('-u', '--username', required=True, help='username to login')
-    parser.add_argument('-p', '--password', required=True, help='password to login')
-    parser.add_argument('-log_file', help='log to file')
-
-    run = parser.add_subparsers(help='run the connector')
-
-    parser_b = run.add_parser('run', help='run connector')
-    parser_b.set_defaults(func=runCommand)
-    parser_b.add_argument('--directory', help='the path to the connector')
-    args = parser.parse_args()
-
-    #call the fu nction in the subparser
-    args.func(args)
-
+    MyParser()
