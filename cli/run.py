@@ -63,6 +63,7 @@ class Run():
         self.args = args 
 
     def findAllConnectors(self, d):
+        print ("CONNECTOR", d['id_token'], d['endpoint'], d['current_env'])
         try:
             obj = cf.execute_function_with_retry(cf.get_model_objects,
                 (d['endpoint'], d['id_token'], "Connectors", None),

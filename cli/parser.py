@@ -2,6 +2,8 @@ import argparse
 import configparser
 import sys
 from run  import Run
+from playbook  import Playbook
+
 import os
 class MyParser(object):
 
@@ -54,18 +56,21 @@ log_file = foo.log
             description="playbook sub commands")
         s1 = parser.add_subparsers(title="commands", dest="command")
         s1.add_parser("show", help="show all the playbooks")
-        s1.add_parser("run", help="run the playbooks")
+        pbn = s1.add_parser("run", help="run the playbooks")
+        pbn.add_argument('--name',  dest="PBName", required=True, help='the name of the playbook to run')
+
         args = parser.parse_args(sys.argv[2:])
-        print 'Playbook args', args.command
-        
+        self.addKeys(args)
+        playBook(args)
+
 def runCommand(args):
     #validate args 
-    print ("Run Commands called", args)
     x = Run(args)
     x.Execute()
 
-def showPlaybook(args):
-    print("Show playbooks", args)
+def playBook(args):
+    x = Playbook(args)
+    getattr(x, args.command)()
 
 def main():
     MyParser()
