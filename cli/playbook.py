@@ -1,7 +1,7 @@
 import sys
 import time 
 import json 
-
+import base64, zlib
 from tabulate import tabulate
 sys.path.insert(0, "../epi-scripts/chatqlv2/cognito")
 sys.path.insert(0, "../epi-scripts/chatqlv2/cognito/appsync-subscription-manager")
@@ -69,6 +69,7 @@ class Playbook(object):
 
     def runPB(self, val, d):
         rb = self.ExecutedRunbooksCreate(self.dummy, val['id'], val['name'], d)
+        #rb = {'id': "cdadbc86-bb6c-45aa-a328-8064e47944fb"}
         count = 0
         print("Running Playbook %s ID %s for INV %s" % (val['name'], rb['id'], self.dummy))
         while(True):
@@ -78,7 +79,10 @@ class Playbook(object):
             print pb['state']
             state = pb['state']
             if (state != "new" and state != "processing"):
-                self.printOutput(pb['output'])
+                op = pb['output']
+                if (pb['outputType'] == "gzip/b64encoded"):
+                    op = zlib.decompress(base64.b64decode(op))
+                self.printOutput(op)
                 return state
             count += 1
             if (count > 20):
@@ -87,7 +91,7 @@ class Playbook(object):
             time.sleep(5)
             
     def ExecutedRunbooksCreate(self, investId, runbookId, title, d):
-        author = "artiBot"
+        author = d['username']
         cmd = {
             'investigationId': investId, 'author': author,
             'runbookID': runbookId,
