@@ -4,6 +4,7 @@ sys.path.insert(0, "../epi-scripts/chatqlv2/cognito/appsync-subscription-manager
 
 import CommonFunctions as cf
 import Subscriptions as S
+from future.utils import iteritems
 import glob
 import yaml 
 import os
@@ -61,6 +62,7 @@ class Run():
         self.logger.set_log_level(cf.Logger.DEBUG)
         self.logger.log(cf.Logger.DEBUG, "initialized with %s" % args)
         self.args = args 
+        self.connector = {}
 
     def findAllConnectors(self, d):
         print ("CONNECTOR", d['id_token'], d['endpoint'], d['current_env'])
@@ -70,10 +72,11 @@ class Run():
                 {}, d['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
                 USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
             for val in obj:
-                if (val['name']==self.connector['name']):
+                if (val['name'] in self.connector) and (val['category'] == self.connector[val['name']]['category']):
                     print("DELETE CONNECTOR:", val)
                     cf.remove_obj(d['endpoint'], d['id_token'],"Connectors", val)
-            cf.create_connector(d['endpoint'], d['id_token'], self.connector)
+            for _, v in iteritems(self.connector):
+                cf.create_connector(d['endpoint'], d['id_token'], v)
         except Exception as e:
             self.logger.log(cf.Logger.ERROR, "findAllConnectors: %r" % (e))
 
@@ -100,7 +103,7 @@ class Run():
         for tmp_file in files:
             f = parse_file(tmp_file, dir_name, self.logger)
             self.logger.log(cf.Logger.INFO, "read connector %s " %  f)
-            self.connector = f 
+            self.connector[f['name']] = f
     def on_subscription_success(self, cb_data, sub):
         self.logger.log(cf.Logger.INFO, "Got subscription success...")
         self.findAllConnectors(cb_data)
@@ -234,8 +237,11 @@ def get_connector_dict(parsed_file_dict, file_name, dir_name, logger):
         logger.log(cf.Logger.ERROR, "Missing required param: %r" % (e))
         return None
 
+    if not parsed_file_dict.get('iconPath'):
+        tmp_dict['iconPath'] = "/assets/images/logos/epi_connector_icon.png"
+    else:
+        tmp_dict['iconPath'] = parsed_file_dict.get('iconPath')
 
-    tmp_dict['iconPath'] = "/assets/images/logos/epi.png"
     if 'script' in parsed_file_dict:
         if 'type' in parsed_file_dict['script']:
             tmp_dict['scriptType'] = parsed_file_dict['script']['type']
