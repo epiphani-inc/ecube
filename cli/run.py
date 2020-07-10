@@ -141,7 +141,10 @@ class Run():
             eh.setExecData(data)
             os.environ['ECUBE_HOOKS_PATH'] = os.getcwd() + "/cli"
             exec_full(data['args']['script_path'], self.logger)
-            o = eh.getExecOutput()
+            o, rc = eh.getExecOutput()
+
+            if rc != 0:
+                upd_status = "ERROR"
         except Exception:
             tb_output = StringIO()
             traceback.print_exc(file=tb_output)
