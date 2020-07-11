@@ -31,6 +31,8 @@ SLEEP_TIME = 5
 # AppSync Endpoint - Subscription Managers Map
 APPSYNC_SUB_MGRS_MAP = {}
 
+USE_THREADS = True
+
 # Cutoff size to gzip commands
 CUTOFF_SIZE = 10 * 1024
 
@@ -63,6 +65,11 @@ class Run():
         self.logger.log(cf.Logger.DEBUG, "initialized with %s" % args)
         self.args = args 
         self.connector = {}
+
+        if USE_THREADS:
+            self.worker_pool = cf.WorkerPool()
+        else:
+            self.worker_pool = None
 
     def findAllConnectors(self, d):
         print ("CONNECTOR", d['id_token'], d['endpoint'], d['current_env'])
@@ -132,6 +139,13 @@ class Run():
         #cleanup_sub_mgr(cb_data)
 
     def handle_new_sandbox_execution(self, message, cb_data):
+        if self.worker_pool:
+            self.worker_pool.apply_async(self.handle_single_execution,
+                (message, cb_data))
+        else:
+            self.handle_single_execution(message, cb_data)
+
+    def handle_single_execution(self, message, cb_data):
         upd_status = "DONE"
         try:
             cf.update_cb_data(cb_data, self.logger)
@@ -169,6 +183,9 @@ class Run():
             traceback.print_exc(file=tb_output)
             tmp_output = tb_output.getvalue()
             self.logger.log(cf.Logger.ERROR, tmp_output)
+
+        if self.worker_pool:
+            eh.removeThreadData()
 
 def get_files(file_pattern):
     return glob.glob(file_pattern)

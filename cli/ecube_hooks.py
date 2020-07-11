@@ -1,3 +1,5 @@
+import threading
+
 # A dictionary of execution data
 execData = None
 
@@ -10,29 +12,55 @@ execRetCode = 0
 # The action to perform
 execAction = None
 
+THREAD_DATA_DICT = {}
+DATA_LOCK = threading.Lock()
+
+def getThreadData():
+    thread_id = threading.current_thread().ident
+
+    DATA_LOCK.acquire()
+
+    if not thread_id in THREAD_DATA_DICT:
+        THREAD_DATA_DICT[thread_id] = {}
+
+    DATA_LOCK.release()
+
+    print("getThreadData: THREAD_DATA_DICT: %s: %r" % (thread_id, THREAD_DATA_DICT))
+    return THREAD_DATA_DICT[thread_id]
+
+def removeThreadData():
+    thread_id = threading.current_thread().ident
+
+    DATA_LOCK.acquire()
+    THREAD_DATA_DICT.pop(thread_id, None)
+    DATA_LOCK.release()
+
+    print("removeThreadData: THREAD_DATA_DICT: %s: %r" % (thread_id, THREAD_DATA_DICT))
+
 def setExecAction(action):
-    global execAction
-    execAction = action
+    t = getThreadData()
+    t['execAction'] = action
 
 def getExecAction():
-    return execAction
+    return getThreadData()['execAction']
 
 def setExecData(data):
-    global execData
     print("setting Exec Data: %r" % (data))
-    execData = data
+    t = getThreadData()
+    t['execData'] = data
 
 def getExecData():
-    print("getting Exec Data: %r" % (execData))
-    return execData
+    t = getThreadData()
+    print("getting Exec Data: %r" % (t['execData']))
+    return t['execData']
 
 def setExecOutput(output, ret_code=0):
-    global execOutput
-    global execRetCode
     print("setting Exec Output: %r" % (output))
-    execOutput = output
-    execRetCode = ret_code
+    t = getThreadData()
+    t['execOutput'] = output
+    t['execRetCode'] = ret_code
 
 def getExecOutput():
-    print("getting Exec Output: %r" % (execOutput))
-    return execOutput, execRetCode
+    t = getThreadData()
+    print("getting Exec Output: %r" % (t['execOutput']))
+    return t['execOutput'], t['execRetCode']
