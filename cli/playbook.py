@@ -17,7 +17,6 @@ class Playbook(object):
         self.logger.log(cf.Logger.DEBUG, "initialized with %s" % args)
         self.env = cf.initEnv(args.login, self.logger)
         self.args = args 
-
     def show(self):
         d = self.env
         try:
@@ -41,7 +40,7 @@ class Playbook(object):
         d = self.env
 
         try:
-            obj = cf.get_model_objects(d['endpoint'], d['id_token'], "Investigation", {'title': {'eq': 'dummy'}})
+            obj = cf.get_model_objects(d['endpoint'], d['id_token'], "Investigation", {'title': {'eq': 'dummy'}, 'from': {'eq': self.args.username}})
             for val in obj:
                 if (val['title'] == 'dummy'):
                     INV = val['id']
@@ -62,6 +61,9 @@ class Playbook(object):
         except Exception as e:
             self.logger.log(cf.Logger.ERROR, "findRunPlaybook: %r" % (e))
     def printOutput(self, out):
+        if (self.args.json):
+            print out
+            return 
         oo = json.loads(out)
         for o in oo:
             for k,v in o.items():
@@ -71,12 +73,14 @@ class Playbook(object):
         rb = self.ExecutedRunbooksCreate(self.dummy, val['id'], val['name'], d)
         #rb = {'id': "cdadbc86-bb6c-45aa-a328-8064e47944fb"}
         count = 0
-        print("Running Playbook %s ID %s for INV %s" % (val['name'], rb['id'], self.dummy))
+        if (self.args.json == False):
+            print("Running Playbook %s ID %s for INV %s" % (val['name'], rb['id'], self.dummy))
         while(True):
             pb = self.findPB(rb['id'], d)
             if (pb == None):
                 return None
-            print pb['state']
+            if (self.args.json == False):
+                print pb['state']
             state = pb['state']
             if (state != "new" and state != "processing"):
                 op = pb['output']
@@ -92,10 +96,14 @@ class Playbook(object):
             
     def ExecutedRunbooksCreate(self, investId, runbookId, title, d):
         author = d['username']
+        rbVars = None 
+        if (self.args.PBVars):
+            rbVars = self.args.PBVars
         cmd = {
             'investigationId': investId, 'author': author,
             'runbookID': runbookId,
-            'title': title, 'state': "new"
+            'title': title, 'state': "new",
+            'rbVars': rbVars
         }
         try:
             link = cf.insert_obj(d['endpoint'], d['id_token'], "ExecutedRunbooks", cmd)
