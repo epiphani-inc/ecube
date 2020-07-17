@@ -33,6 +33,11 @@ APPSYNC_SUB_MGRS_MAP = {}
 
 USE_THREADS = True
 
+# Global know if sandbox connectors should be updated
+# or deleted and inserted. Now, default is to update
+# if the connectors exist.
+UPDATE_CONNECTORS = True
+
 # Cutoff size to gzip commands
 CUTOFF_SIZE = 10 * 1024
 
@@ -80,11 +85,24 @@ class Run():
                 USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
             for val in obj:
                 if (val['name'] in self.connector) and (val['category'] == self.connector[val['name']]['category']):
-                    print("DELETE CONNECTOR:", val)
-                    cf.remove_obj(d['endpoint'], d['id_token'],"Connectors", val)
-            for _, v in iteritems(self.connector):
-                cf.create_connector(d['endpoint'], d['id_token'], v)
+                    if not UPDATE_CONNECTORS:
+                        print("DELETE CONNECTOR:", val)
+                        cf.remove_obj(d['endpoint'], d['id_token'],"Connectors", val)
+                    else:
+                        self.connector[val['name']]['id'] = val['id']
+                        print("UPDATE CONNECTOR:", self.connector[val['name']])
+                        cf.update_obj(d['endpoint'], d['id_token'], "Connectors", self.connector[val['name']])
+            for k, v in iteritems(self.connector):
+                if not 'id' in v:
+                    print("CREATE CONNECTOR:", v)
+                    cf.create_connector(d['endpoint'], d['id_token'], v)
+                else:
+                    print("Connector: %s already exists: %s" % (k, v['id']))
         except Exception as e:
+            tb_output = StringIO()
+            traceback.print_exc(file=tb_output)
+            o = tb_output.getvalue()
+            self.logger.log(cf.Logger.ERROR, o)
             self.logger.log(cf.Logger.ERROR, "findAllConnectors: %r" % (e))
 
         #this should be read from requests 
@@ -162,9 +180,8 @@ class Run():
         except Exception:
             tb_output = StringIO()
             traceback.print_exc(file=tb_output)
-            tmp_output = tb_output.getvalue()
-            self.logger.log(cf.Logger.ERROR, tmp_output)
             o = tb_output.getvalue()
+            self.logger.log(cf.Logger.ERROR, o)
             upd_status = "ERROR"
 
         try:
