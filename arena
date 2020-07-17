@@ -7,6 +7,7 @@ import random
 import argparse
 import configparser
 import string 
+from tabulate import tabulate
 
 PATH="./arena.config"
 LOCAL_RESOURCES = {}
@@ -29,15 +30,22 @@ RESOURCES = {
 
 DEPENDENCIES = {
                 "aws-vpc": ["aws-gateway", "aws-subnet"], 
-                'gcp-compute': ["gcp-vpc"],
-                'aws-compute': ["aws-vpc"],
+                'aws-compute': ["aws-subnet"],
 
-                "aws-vm": ["aws-vpc"], 
-                "aws-vpc": []
+                "aws-vpc": ["aws-firewall", "aws-dns", "aws-cvpn"],
+                "aws-subnet": ["aws-vpc"],
                 }
 
-playbooks = {}
+PLAYBOOKS = {
+    'aws-vpc': 'create-mc-aws-vpc',
+    'aws-compute': 'create-mc-aws-compute',
+    'aws-gateway': 'create-mc-aws-vpc',
+    'aws-subnet': 'create-mc-aws-vpc',
+    'aws-firewall': 'create-mc-aws-vpc',
+    'aws-dns': 'create-mc-aws-vpc',
+    'aws-cvpn': 'create-mc-aws-vpc',
 
+}
 def get_random_string(length):
     letters = string.ascii_lowercase
     result_str = ''.join(random.choice(letters) for i in range(length))
@@ -50,7 +58,8 @@ def readCloud():
             CLOUDCONFIG = json.load(json_file)
     except: 
         print("Cloud not configured yet, applying")
-
+        CLOUDCONFIG['id'] = ENVCONFIG['id']
+        CLOUDCONFIG['resources'] = {}
 def writeCloud():
     global CLOUDCONFIG
     with open(CLOUD_ENV_FILE, 'w') as json_file:
@@ -188,24 +197,60 @@ def addResource(args):
     ENVCONFIG['resources'][constName] = {'resource': args.resource, 'name': args.rname, 'vars': configArgs}
     writeEnv()
 
+def printDict(dict, header):
+    arr = []
+    for key in dict.keys():
+        item = dict[key]
+        ff = []
+        for he in header:
+            ff.append(item[he])
+        arr.append(ff)
+    print (tabulate(arr, headers=header))
+
+def runPBs():
+
 def applyResource(args):
-    print args
-    print ENVCONFIG
     readCloud()
-    print CLOUDCONFIG
     for res in ENVCONFIG['resources'].keys():
         r = ENVCONFIG['resources'][res]
         deps = {}
         collectDependencies(deps, r['resource'], 0)
-    print "FOUND DEPTS", deps 
-    applyConfig = {}
-#    for 
+        for r in deps.keys():
+            if r in ENVCONFIG['resources']:
+                ENVCONFIG['resources'][r]['order'] = deps[r]
+            else:
+                ENVCONFIG['resources'][r] = {'order': deps[r], 'resource':r, 'name': r}
+
+    applyConfig = CLOUDCONFIG['resources']
+    # check against cloud
+    for res in ENVCONFIG['resources'].keys():     
+        if res in applyConfig:
+            # check same or not ... 
+            applyConfig[res]['operation'] = "No change"
+        else:
+            applyConfig[res] = ENVCONFIG['resources'][res]
+            applyConfig[res]['operation'] = "Create"
+    printDict(applyConfig, ['resource', 'name', 'operation'])
+    print "\n"
+
+    CLOUDCONFIG['resources'] = applyConfig
+    if args.yes == False:
+        yesno = raw_input("Configure in the cloud (y/n)?")
+        yesno = yesno.lower()
+        if (yesno != "y"):
+            print "exiting"
+            sys.exit(0)
+    runPBs()
 
 def collectDependencies(var, key, depth):
-    var[key] = depth 
+    if (depth>0):
+        var[key] = depth 
     depth = depth + 1
+    if key not in DEPENDENCIES:
+        return 
     for ff in DEPENDENCIES[key]:
         var[ff] = depth
+
         collectDependencies(var, ff, depth)
 
 def init():

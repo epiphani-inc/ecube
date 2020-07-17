@@ -14,6 +14,7 @@ class MyParser(object):
             usage='''e3 <command> [<args>]
 The following commands are supported:
     run      Run a local connector
+    runcli   Run a cli as a connector 
     playbook Interact with the playbook engine 
     
 Please create a config file ~/.e3.ini with following content:
@@ -50,7 +51,12 @@ log_file = foo.log
         args = parser.parse_args(sys.argv[2:])
         self.addKeys(args)
         runCommand(args)
-
+    def runcli(self):
+        parser = argparse.ArgumentParser(description='Run the commands')
+        parser.add_argument('--command', required=True, nargs='+', help='the command to execute')
+        args = parser.parse_args(sys.argv[2:])
+        self.addKeys(args)
+        runCLI(args)
     def playbook(self):
         parser = argparse.ArgumentParser(
             description="playbook sub commands")
@@ -69,6 +75,11 @@ def runCommand(args):
     #validate args 
     x = Run(args)
     x.Execute()
+
+def runCLI(args):
+    #validate args 
+    x = Run(args)
+    x.ExecuteCLI()
 
 def playBook(args):
     x = Playbook(args)

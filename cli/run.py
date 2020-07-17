@@ -15,6 +15,9 @@ try:
 except ImportError:
     from io import StringIO
 import traceback
+from jinja2 import Environment, FileSystemLoader
+import subprocess
+
 # Set your users information in the list below
 USERS = [
 ]
@@ -40,6 +43,14 @@ UPDATE_CONNECTORS = True
 
 # Cutoff size to gzip commands
 CUTOFF_SIZE = 10 * 1024
+def runCLICMD(cmd):
+    out = subprocess.Popen(cmd, 
+               stdout=subprocess.PIPE, 
+               stderr=subprocess.STDOUT)
+    stdout,stderr = out.communicate()
+    print stdout
+    print stderr
+    return stdout
 
 def exec_full(filepath, logger):
     ret_val = True
@@ -120,6 +131,73 @@ class Run():
          (S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_new_sandbox_execution),
         ], APPSYNC_SUB_MGRS_MAP,
         self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success)
+
+        #this should be read from requests 
+    def loadTemplate(self, args):
+        file_loader = FileSystemLoader('files')
+        env = Environment(loader=file_loader)
+        template = env.get_template('template.yml')
+        cmd = os.path.basename(self.args.command[0])
+        output = template.render(cliName=cmd)
+        try:
+            f = yaml.safe_load(output)
+        except yaml.YAMLError:
+            tb_output = StringIO()
+            traceback.print_exc(file=tb_output)
+            tmp_output = tb_output.getvalue()
+            logger.log(cf.Logger.ERROR, tmp_output)
+        c = get_connector_dict(f, "./files/template.yml", "", self.logger)
+        self.connector[c['name']] = c
+
+        return c 
+
+
+    def handle_cli(self, message, cb_data):
+        upd_status = "DONE"
+        try:
+            cf.update_cb_data(cb_data, self.logger)
+            val = message['data']['onCreateEcubeSandboxExecution']
+            self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
+            o = runCLICMD(self.args.command)
+
+        except Exception:
+            tb_output = StringIO()
+            traceback.print_exc(file=tb_output)
+            o = tb_output.getvalue()
+            self.logger.log(cf.Logger.ERROR, o)
+            upd_status = "ERROR"
+
+        try:
+            update_dict = {
+                'id': val['id'],
+                'output': json.dumps(o, separators=(',', ':')), 
+                'status': upd_status
+            }
+
+            _ = cf.execute_function_with_retry(cf.update_obj,
+                (cb_data['endpoint'], cb_data['id_token'], "EcubeSandboxExecution", update_dict),
+                {}, cb_data['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
+                USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
+        except Exception:
+            tb_output = StringIO()
+            traceback.print_exc(file=tb_output)
+            tmp_output = tb_output.getvalue()
+            self.logger.log(cf.Logger.ERROR, tmp_output)
+
+
+    def ExecuteCLI(self):
+        self.logger.log(cf.Logger.DEBUG, "running command with %s" % self.args)
+        ## load the connector from the path
+        self.loadTemplate(self.args)
+        CURRENT_ENV = self.args.login
+        USERS.append({'username': self.args.username, 'password': self.args.password})
+        cf.gql_main_loop(CURRENT_ENV, self.logger, USERS, BLACKLISTED_TOKENS,
+        USER_LIST, USER_DICT, USERNAME_DICT, SLEEP_TIME,
+        [
+         (S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_cli),
+        ], APPSYNC_SUB_MGRS_MAP,
+        self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success)
+
 
     def loadConnector(self):
         dir_name = self.args.directory
