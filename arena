@@ -1,0 +1,222 @@
+#!/usr/bin/env python
+import subprocess
+import sys
+import json 
+import os
+import random
+import argparse
+import configparser
+import string 
+
+PATH="./arena.config"
+LOCAL_RESOURCES = {}
+CLOUD_RESOURCES = {}
+
+ENV_FILE=PATH+"/arena.cfg"
+CLOUD_ENV_FILE=PATH+"/cloud-arena.cfg"
+ENVCONFIG = {}
+CLOUDCONFIG = {}
+
+#can be fetched from the cloud 
+RESOURCES = {
+    'gcp-compute': {'name': 'gcp-compute', 'description': 'create compute in GCP cloud', 
+        'args':{'region': 'us-west2', 'size': 'nano'}
+    },
+    'aws-compute': {'name': 'aws-compute', 'description': 'create compute in AWS cloud',
+            'args':{'region': 'us-west-2', 'size': 'nano'}
+    }
+}
+
+DEPENDENCIES = {
+                "aws-vpc": ["aws-gateway", "aws-subnet"], 
+                'gcp-compute': ["gcp-vpc"],
+                'aws-compute': ["aws-vpc"],
+
+                "aws-vm": ["aws-vpc"], 
+                "aws-vpc": []
+                }
+
+playbooks = {}
+
+def get_random_string(length):
+    letters = string.ascii_lowercase
+    result_str = ''.join(random.choice(letters) for i in range(length))
+    return result_str
+
+def readCloud():
+    global CLOUDCONFIG
+    try:
+        with open(CLOUD_ENV_FILE, 'r') as json_file:
+            CLOUDCONFIG = json.load(json_file)
+    except: 
+        print("Cloud not configured yet, applying")
+
+def writeCloud():
+    global CLOUDCONFIG
+    with open(CLOUD_ENV_FILE, 'w') as json_file:
+        json.dump(CLOUDCONFIG, json_file)   
+
+
+def readEnv():
+    global ENVCONFIG
+    try:
+        with open(ENV_FILE, 'r') as json_file:
+            ENVCONFIG = json.load(json_file)
+    except: 
+        print("Please run `arena init` first")
+        sys.exit(-1)  
+
+def writeEnv():
+    global ENVCONFIG
+    with open(ENV_FILE, 'w') as json_file:
+        json.dump(ENVCONFIG, json_file)   
+
+def run(cmd):
+    out = subprocess.Popen(cmd, 
+               stdout=subprocess.PIPE, 
+               stderr=subprocess.STDOUT)
+    stdout,stderr = out.communicate()
+    return stdout 
+
+class MyParser(object):
+
+    def __init__(self):
+        self.config_args = {}
+        parser = argparse.ArgumentParser(
+            description='arena -> no code infrstructure ',
+            usage='''arena <command> [<args>]
+The following commands are supported:
+    add       add resource to the arena 
+    remove    remove resource from the arena 
+    init      initialize a new arena 
+    apply     apply the changes to the cloud 
+
+Please create a config file ~/.arena.ini with following content:
+[DEFAULT]
+username = <epiphani username>
+password = <epiphani password> 
+login = URL to epiphani
+log_file = foo.log
+''')
+        config = configparser.ConfigParser()
+        FN = os.path.expanduser('~/.arena.ini')
+        config.read(FN)
+        for key in config['DEFAULT']:
+            self.config_args[key] = config['DEFAULT'][key]
+        parser.add_argument('command', help='Subcommand to run')
+        # parse_args defaults to [1:] for args, but you need to
+        # exclude the rest of the args too, or validation will fail
+        args = parser.parse_args(sys.argv[1:2])
+        if not hasattr(self, args.command):
+            print 'Unrecognized command'
+            parser.print_help()
+            exit(1)
+        # use dispatch pattern to invoke method with same name
+        getattr(self, args.command)()
+
+    def addKeys(self, args):
+        d = vars(args)
+        for key in self.config_args:
+            d[key] = self.config_args[key]
+
+    def init(self):
+        #already existings - please check?
+        try: 
+            os.mkdir(PATH) 
+        except OSError as error: 
+            print(error) 
+
+        id = get_random_string(8)
+        ENVCONFIG['id'] = "arena-"+id
+        ENVCONFIG['resources'] = {}
+        writeEnv() 
+
+    def add(self):
+        global ENVCONFIG
+        readEnv()
+        parser = argparse.ArgumentParser(
+            description="resources to add")
+        s1 = parser.add_subparsers(title="resource", dest="resource")
+        for key in RESOURCES.keys():
+            ar = RESOURCES[key]
+            st = s1.add_parser(ar['name'], help=ar['description'])
+            st.add_argument('--vars',  dest="vars", required=False, help='the variables to pass to resource')
+            st.add_argument('--name',  dest="rname", required=True, help='the name of the resource')
+        args = parser.parse_args(sys.argv[2:])
+        self.addKeys(args)
+        addResource(args)
+
+    def apply(self):
+        global ENVCONFIG
+        readEnv()
+        parser = argparse.ArgumentParser(
+            description="resources to apply")
+        s1 = parser.add_argument('--yes',  action='store_true', dest="yes", required=False, help='assume yes')
+        args = parser.parse_args(sys.argv[2:])
+        self.addKeys(args)
+
+        applyResource(args)
+
+    def playbook(self):
+        parser = argparse.ArgumentParser(
+            description="playbook sub commands")
+        s1 = parser.add_subparsers(title="commands", dest="command")
+        s1.add_parser("show", help="show all the playbooks")
+        pbn = s1.add_parser("run", help="run the playbooks")
+        pbn.add_argument('--name',  dest="PBName", required=True, help='the name of the playbook to run')
+        pbn.add_argument('--vars',  dest="PBVars", required=False, help='the variables to pass to playbook')
+        pbn.add_argument('--json',  type=bool, required=False, help='output only json', default=False)
+
+        args = parser.parse_args(sys.argv[2:])
+        self.addKeys(args)
+        playBook(args)
+
+def addResource(args):
+    selected = RESOURCES[args.resource]
+    vars = args.vars 
+    selArgs = selected['args']
+    configArgs = selArgs
+    constName = args.resource + "#"+args.rname 
+    if (constName in ENVCONFIG['resources']):
+        print "resource already exists, please remove it first"
+        sys.exit(-1)
+    print "Adding resource: %s [%s]" % (args.resource, args.rname)
+    for key in selArgs.keys():
+        if (vars and (key in vars)):
+            configArgs[key] = vars[key]
+        print "  %s: %s" % (key, configArgs[key])
+    ENVCONFIG['resources'][constName] = {'resource': args.resource, 'name': args.rname, 'vars': configArgs}
+    writeEnv()
+
+def applyResource(args):
+    print args
+    print ENVCONFIG
+    readCloud()
+    print CLOUDCONFIG
+    for res in ENVCONFIG['resources'].keys():
+        r = ENVCONFIG['resources'][res]
+        deps = {}
+        collectDependencies(deps, r['resource'], 0)
+    print "FOUND DEPTS", deps 
+    applyConfig = {}
+#    for 
+
+def collectDependencies(var, key, depth):
+    var[key] = depth 
+    depth = depth + 1
+    for ff in DEPENDENCIES[key]:
+        var[ff] = depth
+        collectDependencies(var, ff, depth)
+
+def init():
+
+    cmd = ["cat", "foo"]
+    out = run(cmd)
+    print ("OUTPUT IS ", out)
+    dumpResources()
+
+def doMain():
+    MyParser()
+
+if __name__ == '__main__':
+    sys.exit(doMain())
