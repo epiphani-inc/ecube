@@ -50,7 +50,7 @@ def runCLICMD(cmd):
     stdout,stderr = out.communicate()
     print stdout
     print stderr
-    return stdout
+    return str.lstrip(stdout)
 
 def exec_full(filepath, logger):
     ret_val = True
@@ -151,12 +151,20 @@ class Run():
 
         return c 
 
+    def isthisforme(self, val):
+        for key in self.connector.keys():
+            if self.connector[key]["id"] == val["E3Two"]:                
+                return True
+        return False 
 
     def handle_cli(self, message, cb_data):
         upd_status = "DONE"
         try:
             cf.update_cb_data(cb_data, self.logger)
             val = message['data']['onCreateEcubeSandboxExecution']
+            if (not self.isthisforme(val)):
+                return 
+
             self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
             o = runCLICMD(self.args.command)
 
@@ -170,10 +178,9 @@ class Run():
         try:
             update_dict = {
                 'id': val['id'],
-                'output': json.dumps(o, separators=(',', ':')), 
+                'output': o,
                 'status': upd_status
             }
-
             _ = cf.execute_function_with_retry(cf.update_obj,
                 (cb_data['endpoint'], cb_data['id_token'], "EcubeSandboxExecution", update_dict),
                 {}, cb_data['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
@@ -246,6 +253,8 @@ class Run():
         try:
             cf.update_cb_data(cb_data, self.logger)
             val = message['data']['onCreateEcubeSandboxExecution']
+            if (not self.isthisforme(val)):
+                return 
             self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
             data = json.loads(val['E3One'])
             eh.setExecData(data)

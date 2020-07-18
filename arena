@@ -44,7 +44,6 @@ PLAYBOOKS = {
     'aws-firewall': 'create-mc-aws-vpc',
     'aws-dns': 'create-mc-aws-vpc',
     'aws-cvpn': 'create-mc-aws-vpc',
-
 }
 def get_random_string(length):
     letters = string.ascii_lowercase
@@ -208,7 +207,11 @@ def printDict(dict, header):
     print (tabulate(arr, headers=header))
 
 def runPBs():
-
+    pbs = {}
+    applyConfig = CLOUDCONFIG['resources']
+    # for key in applyConfig.keys():
+    #     if (applyConfig[key]['operation'] == "Create"):
+    #         pbs =
 def applyResource(args):
     readCloud()
     for res in ENVCONFIG['resources'].keys():
