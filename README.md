@@ -1,2 +1,2 @@
 # ecube
-The cube repo
+The ecube (e3) repo

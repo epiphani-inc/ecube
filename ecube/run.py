@@ -1,16 +1,13 @@
 import sys
-sys.path.insert(0, "../epi-scripts/chatqlv2/cognito")
-sys.path.insert(0, "../epi-scripts/chatqlv2/cognito/appsync-subscription-manager")
-
-import CommonFunctions as cf
-import Subscriptions as S
+import gql as cf
+import gql_operations.Subscriptions as S
 from future.utils import iteritems
 import glob
 import yaml 
 import os
 import signal
 import json
-from cli import ecube_hooks as eh
+from ecube import ecube_hooks as eh
 try:
     from StringIO import StringIO
 except ImportError:
@@ -23,12 +20,12 @@ import subprocess
 USERS = [
 ]
 
-# Leave this as an empty list, it is user to automatically
+# Leave this as an empty list, it is used to automatically
 # populate all the usernames from the list above.
 USER_LIST = []
 USERNAME_DICT = {}
 BLACKLISTED_TOKENS = {}
-# Leave this as an empty dict, it is user to automatically
+# Leave this as an empty dict, it is used to automatically
 # populate all the userid to user objects.
 USER_DICT = {}
 SLEEP_TIME = 5
@@ -51,8 +48,8 @@ def runCLICMD(cmd):
                stdout=subprocess.PIPE, 
                stderr=subprocess.STDOUT)
     stdout,stderr = out.communicate()
-    print stdout
-    print stderr
+    print(stdout)
+    print(stderr)
     return str.lstrip(stdout)
 
 def exec_full(filepath, logger):
@@ -137,7 +134,7 @@ class Run():
         self.loadConnector()
         
         CURRENT_ENV = self.args.login
-        USERS.append({'username': self.args.username, 'password': self.args.password})
+        USERS.append({'username': self.args.username, 'passwd': self.args.password})
         cf.gql_main_loop(CURRENT_ENV, self.logger, USERS, BLACKLISTED_TOKENS,
         USER_LIST, USER_DICT, USERNAME_DICT, SLEEP_TIME,
         [
@@ -158,7 +155,7 @@ class Run():
             tb_output = StringIO()
             traceback.print_exc(file=tb_output)
             tmp_output = tb_output.getvalue()
-            logger.log(cf.Logger.ERROR, tmp_output)
+            self.logger.log(cf.Logger.ERROR, tmp_output)
         c = get_connector_dict(f, "./files/template.yml", "", self.logger)
         self.connector[c['name']] = c
 
@@ -173,7 +170,6 @@ class Run():
     def handle_cli(self, message, cb_data):
         upd_status = "DONE"
         try:
-            cf.update_cb_data(cb_data, self.logger)
             val = message['data']['onCreateEcubeSandboxExecution']
             if (not self.isthisforme(val)):
                 return 
@@ -264,7 +260,6 @@ class Run():
     def handle_single_execution(self, message, cb_data):
         upd_status = "DONE"
         try:
-            cf.update_cb_data(cb_data, self.logger)
             val = message['data']['onCreateEcubeSandboxExecution']
             if (not self.isthisforme(val)):
                 return 
