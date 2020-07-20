@@ -8,6 +8,7 @@ from future.utils import iteritems
 import glob
 import yaml 
 import os
+import signal
 import json
 from cli import ecube_hooks as eh
 try:
@@ -40,6 +41,8 @@ USE_THREADS = True
 # or deleted and inserted. Now, default is to update
 # if the connectors exist.
 UPDATE_CONNECTORS = True
+
+PUBLISH_ONLY = False
 
 # Cutoff size to gzip commands
 CUTOFF_SIZE = 10 * 1024
@@ -75,12 +78,16 @@ def exec_full(filepath, logger):
 
 class Run():
     def __init__(self, args=None):
+        global PUBLISH_ONLY
         self.logger = cf.Logger(log_to_file=True if args.log_file else False,
                               log_file=args.log_file)
         self.logger.set_log_level(cf.Logger.DEBUG)
         self.logger.log(cf.Logger.DEBUG, "initialized with %s" % args)
         self.args = args 
         self.connector = {}
+
+        if self.args.publish_playbooks:
+            PUBLISH_ONLY = True
 
         if USE_THREADS:
             self.worker_pool = cf.WorkerPool()
@@ -95,7 +102,9 @@ class Run():
                 {}, d['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
                 USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
             for val in obj:
-                if (val['name'] in self.connector) and (val['category'] == self.connector[val['name']]['category']):
+                if ((val['name'] in self.connector) and
+                    (val['category'] == self.connector[val['name']]['category']) and
+                    (val['source'] == self.connector[val['name']]['source'])):
                     if not UPDATE_CONNECTORS:
                         print("DELETE CONNECTOR:", val)
                         cf.remove_obj(d['endpoint'], d['id_token'],"Connectors", val)
@@ -115,6 +124,10 @@ class Run():
             o = tb_output.getvalue()
             self.logger.log(cf.Logger.ERROR, o)
             self.logger.log(cf.Logger.ERROR, "findAllConnectors: %r" % (e))
+
+        if PUBLISH_ONLY:
+            print("Done Publishing playbooks, exiting...")
+            os.kill(os.getpid(), signal.SIGKILL)
 
         #this should be read from requests 
     def Execute(self):
@@ -318,6 +331,7 @@ def parse_file(file_name, dir_name, logger):
     return c 
 
 INTEGRATION_SOURCE="developer"
+INTEGRATION_EPIPHANI_SOURCE="epiphani-multicloud"
 INTEGRATION_DIR=""
 
 def get_script_type_extension(file_type):
@@ -355,7 +369,12 @@ def get_connector_dict(parsed_file_dict, file_name, dir_name, logger):
         tmp_dict['name'] = parsed_file_dict['name']
         tmp_dict['category'] = parsed_file_dict['category']
         tmp_dict['description'] = parsed_file_dict['description']
-        tmp_dict['source'] = INTEGRATION_SOURCE
+
+        if PUBLISH_ONLY:
+            tmp_dict['source'] = INTEGRATION_EPIPHANI_SOURCE
+        else:
+            tmp_dict['source'] = INTEGRATION_SOURCE
+
         tmp_dict['md5'] = cf.get_file_md5sum(file_name)
     except Exception as e:
         logger.log(cf.Logger.ERROR, "Missing required param: %r" % (e))

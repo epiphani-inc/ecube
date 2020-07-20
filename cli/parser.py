@@ -48,6 +48,9 @@ log_file = foo.log
     def run(self):
         parser = argparse.ArgumentParser(description='Run the commands')
         parser.add_argument('--directory', required=True, help='the path to the connector')
+        parser.add_argument('--publish-playbooks', required=False,
+            help="Only publish the playbooks (as epiphani, not developer) and exit",
+            default=False, action='store_true')
         args = parser.parse_args(sys.argv[2:])
         self.addKeys(args)
         runCommand(args)
