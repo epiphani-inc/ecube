@@ -1,4 +1,24 @@
-# This is an auto-generated file, please do not modify
+'''
+Copyright (c) 2020 epiphani, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
 
 QUERIES = {'byauthorsorted': '\n  query ByAuthorSorted(\n    $author: String\n    $updatedAt: ModelStringKeyConditionInput\n    $sortDirection: ModelSortDirection\n    $filter: ModelAllRunbooksFilterInput\n    $limit: Int\n    $nextToken: String\n  ) {\n    byAuthorSorted(\n      author: $author\n      updatedAt: $updatedAt\n      sortDirection: $sortDirection\n      filter: $filter\n      limit: $limit\n      nextToken: $nextToken\n    ) {\n      items {\n        id\n        name\n        description\n        content\n        author\n        commands\n        createdAt\n        updatedAt\n        RunBookConnectors\n        type\n        longSave\n        rbVars\n        scope\n        PeopleCanView\n        PeopleCanAccess\n        GroupsCanView\n        GroupsCanAccess\n        connectorForms {\n          nextToken\n        }\n      }\n      nextToken\n    }\n  }\n',
  'byinvsorted': '\n  query ByInvSorted(\n    $investigationId: ID\n    $updatedAt: ModelStringKeyConditionInput\n    $sortDirection: ModelSortDirection\n    $filter: ModelInvestigationEventFilterInput\n    $limit: Int\n    $nextToken: String\n  ) {\n    byInvSorted(\n      investigationId: $investigationId\n      updatedAt: $updatedAt\n      sortDirection: $sortDirection\n      filter: $filter\n      limit: $limit\n      nextToken: $nextToken\n    ) {\n      items {\n        id\n        createdAt\n        updatedAt\n        author\n        content\n        type\n        links\n        investigationId\n        investigation {\n          id\n          title\n          from\n          createdAt\n          currentState\n          HumanID\n          currentStateID\n          severity\n          priority\n          location\n          channelId\n          updatedAt\n          resolvedTime\n          resolvedComment\n          Symptoms\n          meetingType\n          meetingId\n        }\n      }\n      nextToken\n    }\n  }\n',
