@@ -133,7 +133,7 @@ class Run():
             for k, v in iteritems(self.connector):
                 if not 'id' in v:
                     print("CREATE CONNECTOR:", v)
-                    cf.create_connector(d['endpoint'], d['id_token'], v)
+                    cf.insert_obj(d['endpoint'], d['id_token'], 'Connectors', v)
                 else:
                     print("Connector: %s already exists: %s" % (k, v['id']))
         except Exception as e:
