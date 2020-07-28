@@ -37,6 +37,7 @@ import gql_operations.Mutations as Mutations
 import gql_operations.Queries as Queries
 
 ENVIRONMENTS = environments.ENVIRONMENTS
+ARTIBOT_USERNAME = "artibot"
 
 # Read GQL URL
 LOCAL_GQL_HOST = os.environ.get('LOCAL_GQL_HOST', "epic-sandbox")
