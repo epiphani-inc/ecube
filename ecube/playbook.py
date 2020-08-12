@@ -24,10 +24,8 @@ import time
 import json 
 import base64, zlib
 from tabulate import tabulate
-sys.path.insert(0, "../epi-scripts/chatqlv2/cognito")
-sys.path.insert(0, "../epi-scripts/chatqlv2/cognito/appsync-subscription-manager")
 
-import CommonFunctions as cf
+import gql as cf
 
 class Playbook(object):
     def __init__(self, args):
