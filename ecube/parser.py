@@ -26,6 +26,7 @@ from run  import Run
 from playbook  import Playbook
 
 import os
+import gql
 
 DEFAULT_ENV = 'ALPHA'
 
@@ -55,6 +56,8 @@ log_file = foo.log
             self.config_args[key] = config['DEFAULT'][key]
         if not self.config_args.get('login'):
             self.config_args['login'] = DEFAULT_ENV
+        tmp_user_list = [{'username': self.args.username, 'passwd': self.args.password}]
+        gql.set_env_var(self.config_args['login'], 'USERS', tmp_user_list)
         parser.add_argument('command', help='Subcommand to run')
         # parse_args defaults to [1:] for args, but you need to
         # exclude the rest of the args too, or validation will fail
