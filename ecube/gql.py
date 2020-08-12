@@ -20,7 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 import sys
-sys.path.insert(0, "../epi-scripts/chatqlv2/cognito/appsync-subscription-manager")
 import appsync_subscription_manager as asm
 import warrant
 import os
