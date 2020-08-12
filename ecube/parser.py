@@ -26,6 +26,9 @@ from run  import Run
 from playbook  import Playbook
 
 import os
+
+DEFAULT_ENV = 'ALPHA'
+
 class MyParser(object):
 
     def __init__(self):
@@ -50,6 +53,8 @@ log_file = foo.log
         config.read(FN)
         for key in config['DEFAULT']:
             self.config_args[key] = config['DEFAULT'][key]
+        if not self.config_args.get('login'):
+            self.config_args['login'] = DEFAULT_ENV
         parser.add_argument('command', help='Subcommand to run')
         # parse_args defaults to [1:] for args, but you need to
         # exclude the rest of the args too, or validation will fail
