@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from os import path
 from io import open
 
@@ -14,6 +14,7 @@ setup(
     install_requires=[
         'websocket-client>=0.57.0',
         'warrant>=0.6.1',
+        'configparser>=5.0.0',
         'requests>=2.22.0',
         'epiphani-appsync-subscription-manager>=0.1.0',
     ],
@@ -23,7 +24,7 @@ setup(
     url='https://github.com/epiphani-inc/ecube',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    packages=['ecube'],
+    packages=find_packages(include=["ecube.*"]),
     include_package_data=True,
     description="epiphani CLI for registering connectors & executing scripts in a sandbox",
 )
