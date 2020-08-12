@@ -56,6 +56,10 @@ log_file = foo.log
             self.config_args[key] = config['DEFAULT'][key]
         if not self.config_args.get('login'):
             self.config_args['login'] = DEFAULT_ENV
+        if not self.config.args.get('username') or not self.config.args.get('password'):
+            print "Missing config"
+            parser.print_help()
+            exit(1)
         tmp_user_list = [{'username': self.config_args['username'], 'passwd': self.config_args['password']}]
         gql.set_env_var(self.config_args['login'], 'USERS', tmp_user_list)
         parser.add_argument('command', help='Subcommand to run')
