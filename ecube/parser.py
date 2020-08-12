@@ -56,8 +56,8 @@ log_file = foo.log
             self.config_args[key] = config['DEFAULT'][key]
         if not self.config_args.get('login'):
             self.config_args['login'] = DEFAULT_ENV
-        if not self.config.args.get('username') or not self.config.args.get('password'):
-            print "Missing config"
+        if not self.config_args.get('username') or not self.config_args.get('password'):
+            print("Missing config")
             parser.print_help()
             exit(1)
         tmp_user_list = [{'username': self.config_args['username'], 'passwd': self.config_args['password']}]
@@ -67,7 +67,7 @@ log_file = foo.log
         # exclude the rest of the args too, or validation will fail
         args = parser.parse_args(sys.argv[1:2])
         if not hasattr(self, args.command):
-            print 'Unrecognized command'
+            print('Unrecognized command')
             parser.print_help()
             exit(1)
         # use dispatch pattern to invoke method with same name
