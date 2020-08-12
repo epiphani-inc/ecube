@@ -30,8 +30,12 @@ import gql as cf
 class Playbook(object):
     def __init__(self, args):
 
-        self.logger = cf.Logger(log_to_file=True if args.log_file else False,
-                              log_file=args.log_file)
+        try:
+            tmp_lf = args.log_file
+        except:
+            tmp_lf = None
+        self.logger = cf.Logger(log_to_file=True if tmp_lf else False,
+                                log_file=tmp_lf)
         self.logger.set_log_level(cf.Logger.DEBUG)
         self.logger.log(cf.Logger.DEBUG, "initialized with %s" % args)
         self.env = cf.initEnv(args.login, self.logger)
