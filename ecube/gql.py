@@ -398,6 +398,7 @@ def init_environment(env, users, user_list, user_dict, username_dict, logger):
         except Exception as e:
             # Authentication failed...
             logger.log(Logger.ERROR, "%r" % (e))
+            raise
 
         # Save the authenticated cognito user object
         user['auth'] = u
