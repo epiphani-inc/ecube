@@ -184,7 +184,7 @@ class Run():
             traceback.print_exc(file=tb_output)
             tmp_output = tb_output.getvalue()
             self.logger.log(cf.Logger.ERROR, tmp_output)
-        c = get_connector_dict(f, "./files/template.yml", "", self.logger)
+        c = get_connector_dict(f, "ecube/files/template.yml", "", self.logger)
         self.connector[c['name']] = c
 
         return c 
@@ -234,7 +234,7 @@ class Run():
         ## load the connector from the path
         self.loadTemplate(self.args)
         CURRENT_ENV = self.args.login
-        USERS.append({'username': self.args.username, 'password': self.args.password})
+        USERS.append({'username': self.args.username, 'passwd': self.args.password})
         cf.gql_main_loop(CURRENT_ENV, self.logger, USERS, BLACKLISTED_TOKENS,
         USER_LIST, USER_DICT, USERNAME_DICT, SLEEP_TIME,
         [
