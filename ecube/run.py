@@ -172,7 +172,7 @@ class Run():
 
         #this should be read from requests 
     def loadTemplate(self, args):
-        file_loader = FileSystemLoader('files')
+        file_loader = FileSystemLoader('ecube/files')
         env = Environment(loader=file_loader)
         template = env.get_template('template.yml')
         cmd = os.path.basename(self.args.name)
