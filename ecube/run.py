@@ -108,8 +108,11 @@ class Run():
         self.args = args 
         self.connector = {}
 
-        if self.args.publish_playbooks:
-            PUBLISH_ONLY = True
+        try:
+            if self.args.publish_playbooks:
+                PUBLISH_ONLY = True
+        except:
+            pass
 
         if USE_THREADS:
             self.worker_pool = cf.WorkerPool()
