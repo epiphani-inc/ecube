@@ -36,6 +36,7 @@ except ImportError:
 import traceback
 from jinja2 import Environment, FileSystemLoader
 import subprocess
+import inspect
 
 # Set your users information in the list below
 USERS = [
@@ -172,7 +173,8 @@ class Run():
 
         #this should be read from requests 
     def loadTemplate(self, args):
-        file_loader = FileSystemLoader('ecube/files')
+        template_dir = "%s/files" % (os.path.dirname(inspect.getfile(cf)))
+        file_loader = FileSystemLoader(template_dir)
         env = Environment(loader=file_loader)
         template = env.get_template('template.yml')
         cmd = os.path.basename(self.args.name)
@@ -184,7 +186,7 @@ class Run():
             traceback.print_exc(file=tb_output)
             tmp_output = tb_output.getvalue()
             self.logger.log(cf.Logger.ERROR, tmp_output)
-        c = get_connector_dict(f, "ecube/files/template.yml", "", self.logger)
+        c = get_connector_dict(f, template_dir + "/template.yml", "", self.logger)
         self.connector[c['name']] = c
 
         return c 
