@@ -201,9 +201,10 @@ class Run():
             val = message['data']['onCreateEcubeSandboxExecution']
             if (not self.isthisforme(val)):
                 return 
-
+            data = json.loads(val['E3One'])
+            data2 = data['args']['args']
             self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
-            o = runCLICMD(self.args.command)
+            o = runCLICMD(self.args.command+" "+data2) 
 
         except Exception:
             tb_output = StringIO()
