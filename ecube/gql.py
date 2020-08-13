@@ -32,6 +32,7 @@ import requests
 import hashlib
 import json
 import traceback
+import signal
 import gql_operations.Mutations as Mutations
 import gql_operations.Queries as Queries
 
@@ -345,7 +346,8 @@ def gql_main_loop(current_env, logger, users, blacklisted_tokens,
 
     set_env_var(current_env, 'USERS', users)
 
-    while True:
+    try:
+      while True:
         if (use_local_instance or current_env) and not init_done:
             if use_local_instance or (current_env in ENVIRONMENTS):
                 setup_env_and_subscribe(sub_list=sub_list, appsync_sub_mgrs_map=appsync_sub_mgrs_map, logger=logger,
@@ -373,6 +375,8 @@ def gql_main_loop(current_env, logger, users, blacklisted_tokens,
 
         # logger.log(Logger.DEBUG, "Sleeping for %d secs..." % sleep_time)
         time.sleep(sleep_time)
+    except KeyboardInterrupt as e:
+        os.kill(os.getpid(), signal.SIGTERM)
 
 def get_env_var(env, var):
     return ENVIRONMENTS[env][var]
