@@ -172,7 +172,7 @@ class Run():
         file_loader = FileSystemLoader('files')
         env = Environment(loader=file_loader)
         template = env.get_template('template.yml')
-        cmd = os.path.basename(self.args.command[0])
+        cmd = os.path.basename(self.args.name)
         output = template.render(cliName=cmd)
         try:
             f = yaml.safe_load(output)
