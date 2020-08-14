@@ -291,8 +291,6 @@ def check_and_subscribe(endpoint=None, endpoint_user_dict=None, username=None,
         logger.log(Logger.DEBUG, "Sub Mgr already exists for endpoint: %s user: %s" % (endpoint, username))
         return False
 
-    logger.log(Logger.INFO, "Trying Subscription for: EP: %s U: %s" % (endpoint, username))
-
     tmp_cb_data = {
         'current_env': current_env,
         'endpoint': endpoint,

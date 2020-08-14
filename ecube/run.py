@@ -37,7 +37,7 @@ import traceback
 from jinja2 import Environment, FileSystemLoader
 import subprocess
 import inspect
-
+import copy 
 # Set your users information in the list below
 USERS = [
 ]
@@ -104,8 +104,7 @@ class Run():
             tmp_lf = None
         self.logger = cf.Logger(log_to_file=True if tmp_lf else False,
                                 log_file=tmp_lf)
-        self.logger.set_log_level(cf.Logger.DEBUG)
-        self.logger.log(cf.Logger.DEBUG, "initialized with %s" % args)
+        self.logger.set_log_level(cf.Logger.INFO)
         self.args = args 
         self.connector = {}
 
@@ -121,7 +120,6 @@ class Run():
             self.worker_pool = None
 
     def findAllConnectors(self, d):
-        print ("CONNECTOR", d['id_token'], d['endpoint'], d['current_env'])
         try:
             obj = cf.execute_function_with_retry(cf.get_model_objects,
                 (d['endpoint'], d['id_token'], "Connectors", None),
@@ -132,18 +130,13 @@ class Run():
                     (val['category'] == self.connector[val['name']]['category']) and
                     (val['source'] == self.connector[val['name']]['source'])):
                     if not UPDATE_CONNECTORS:
-                        print("DELETE CONNECTOR:", val)
                         cf.remove_obj(d['endpoint'], d['id_token'],"Connectors", val)
                     else:
                         self.connector[val['name']]['id'] = val['id']
-                        print("UPDATE CONNECTOR:", self.connector[val['name']])
                         cf.update_obj(d['endpoint'], d['id_token'], "Connectors", self.connector[val['name']])
             for k, v in iteritems(self.connector):
                 if not 'id' in v:
-                    print("CREATE CONNECTOR:", v)
                     cf.insert_obj(d['endpoint'], d['id_token'], 'Connectors', v)
-                else:
-                    print("Connector: %s already exists: %s" % (k, v['id']))
         except Exception as e:
             tb_output = StringIO()
             traceback.print_exc(file=tb_output)
@@ -157,8 +150,6 @@ class Run():
 
         #this should be read from requests 
     def Execute(self):
-        self.logger.log(cf.Logger.DEBUG, "running command with %s" % self.args)
-
         ## load the connector from the path
         self.loadConnector()
         
@@ -206,7 +197,9 @@ class Run():
             data = json.loads(val['E3One'])
             data2 = data['args']['args']
             self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
-            o = runCLICMD(self.args.command+" "+data2) 
+            ff = copy.deepcopy(self.args.command) 
+            ff.append(data2)
+            o = runCLICMD(ff) 
 
         except Exception:
             tb_output = StringIO()
@@ -216,6 +209,7 @@ class Run():
             upd_status = "ERROR"
 
         try:
+
             update_dict = {
                 'id': val['id'],
                 'output': o,
@@ -255,7 +249,6 @@ class Run():
             self.logger.log(cf.Logger.INFO, "read connector %s " %  f)
             self.connector[f['name']] = f
     def on_subscription_success(self, cb_data, sub):
-        self.logger.log(cf.Logger.INFO, "Got subscription success...")
         self.findAllConnectors(cb_data)
 
     def on_error(self, error, cb_data):
