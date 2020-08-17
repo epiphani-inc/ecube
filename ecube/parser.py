@@ -44,10 +44,10 @@ The following commands are supported:
     
 Please create a config file ~/.e3.ini with following content:
 [DEFAULT]
-username = <epiphani username>
-password = <epiphani password> 
-login = URL to epiphani
-log_file = foo.log
+username = <epiphani username> <REQUIRED>
+password = <epiphani password> <REQUIRED>
+login = URL to epiphani <OPTIONAL>
+log_file = foo.log <OPTIONAL>
 ''')
         config = configparser.ConfigParser()
         FN = os.path.expanduser('~/.e3.ini')
