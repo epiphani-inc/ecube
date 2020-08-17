@@ -123,7 +123,7 @@ class Run():
         try:
             obj = cf.execute_function_with_retry(cf.get_model_objects,
                 (d['endpoint'], d['id_token'], "Connectors", None),
-                {}, d['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
+                {}, d['current_env'], d['username'], 1, 0,
                 USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
             for val in obj:
                 if ((val['name'] in self.connector) and
@@ -215,7 +215,7 @@ class Run():
             }
             _ = cf.execute_function_with_retry(cf.update_obj,
                 (cb_data['endpoint'], cb_data['id_token'], "EcubeSandboxExecution", update_dict),
-                {}, cb_data['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
+                {}, cb_data['current_env'], cb_data['username'], 1, 0,
                 USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
         except Exception:
             tb_output = StringIO()
@@ -310,7 +310,7 @@ class Run():
 
             _ = cf.execute_function_with_retry(cf.update_obj,
                 (cb_data['endpoint'], cb_data['id_token'], "EcubeSandboxExecution", update_dict),
-                {}, cb_data['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
+                {}, cb_data['current_env'], cb_data['username'], 1, 0,
                 USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
         except Exception:
             tb_output = StringIO()
