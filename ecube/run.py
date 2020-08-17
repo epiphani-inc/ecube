@@ -66,7 +66,7 @@ PUBLISH_ONLY = False
 # Cutoff size to gzip commands
 CUTOFF_SIZE = 10 * 1024
 def runCLICMD(cmd):
-    out = subprocess.Popen(cmd, 
+    out = subprocess.Popen(cmd, shell=True,
                stdout=subprocess.PIPE, 
                stderr=subprocess.STDOUT)
     stdout,stderr = out.communicate()
@@ -195,11 +195,9 @@ class Run():
             if (not self.isthisforme(val)):
                 return 
             data = json.loads(val['E3One'])
-            data2 = data['args']['args']
+            data2 = data['args']['command']
             self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
-            ff = copy.deepcopy(self.args.command) 
-            ff.append(data2)
-            o = runCLICMD(ff) 
+            o = runCLICMD(data2)
 
         except Exception:
             tb_output = StringIO()

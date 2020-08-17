@@ -90,7 +90,6 @@ log_file = foo.log
     def runcli(self):
         parser = argparse.ArgumentParser(description='Run the commands')
         parser.add_argument('--name', required=True, help='the name of the connector to create')
-        parser.add_argument('--command', required=True, nargs='+', help='the command to execute')
         args = parser.parse_args(sys.argv[2:])
 
         self.addKeys(args)

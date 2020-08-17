@@ -18,9 +18,9 @@ script:
   - name: run-cli
     description: Run a custom CLI command 
     arguments:
-    - name: args 
+    - name: command
       required: false
-      description: extra args for the commands 
+      description: Command you wish to execute
   outputs:
     - contextPath: {{cliName}}.output
       description: output of the command 
