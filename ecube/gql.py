@@ -26,15 +26,15 @@ import os
 from datetime import datetime
 import threading
 import pprint
-import environments
+import ecube.environments as environments
 import time
 import requests
 import hashlib
 import json
 import traceback
 import signal
-import gql_operations.Mutations as Mutations
-import gql_operations.Queries as Queries
+import ecube.gql_operations.Mutations as Mutations
+import ecube.gql_operations.Queries as Queries
 
 ENVIRONMENTS = environments.ENVIRONMENTS
 ARTIBOT_USERNAME = "artibot"

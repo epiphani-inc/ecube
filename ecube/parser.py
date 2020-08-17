@@ -22,11 +22,11 @@ SOFTWARE.
 import argparse
 import configparser
 import sys
-from run  import Run
-from playbook  import Playbook
+from ecube.run import Run
+from ecube.playbook import Playbook
 
 import os
-import gql
+import ecube.gql as gql
 
 DEFAULT_ENV = 'ALPHA'
 

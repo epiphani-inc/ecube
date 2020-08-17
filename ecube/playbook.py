@@ -25,7 +25,7 @@ import json
 import base64, zlib
 from tabulate import tabulate
 
-import gql as cf
+import ecube.gql as cf
 
 class Playbook(object):
     def __init__(self, args):

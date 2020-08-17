@@ -20,8 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 import sys
-import gql as cf
-import gql_operations.Subscriptions as S
+import ecube.gql as cf
+import ecube.gql_operations.Subscriptions as S
 from future.utils import iteritems
 import glob
 import yaml 
