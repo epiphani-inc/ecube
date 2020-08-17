@@ -84,12 +84,12 @@ class Playbook(object):
             self.logger.log(cf.Logger.ERROR, "findRunPlaybook: %r" % (e))
     def printOutput(self, out):
         if (self.args.json):
-            print out
+            print(out)
             return 
         oo = json.loads(out)
         for o in oo:
             for k,v in o.items():
-                print k, v
+                print (k, v)
 
     def runPB(self, val, d):
         rb = self.ExecutedRunbooksCreate(self.dummy, val['id'], val['name'], d)
@@ -102,7 +102,7 @@ class Playbook(object):
             if (pb == None):
                 return None
             if (self.args.json == False):
-                print pb['state']
+                print (pb['state'])
             state = pb['state']
             if (state != "new" and state != "processing"):
                 op = pb['output']
@@ -112,7 +112,7 @@ class Playbook(object):
                 return state
             count += 1
             if (count > 20):
-                print "Timeout"
+                print ("Timeout")
                 return None
             time.sleep(5)
             
