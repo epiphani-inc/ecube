@@ -8,7 +8,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='epiphani-ecube',
-    version='1.0.2',
+    version='1.0.3',
     license='MIT',
     scripts=['e3'],
     install_requires=[

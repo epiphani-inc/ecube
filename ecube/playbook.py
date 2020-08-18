@@ -96,7 +96,7 @@ class Playbook(object):
         #rb = {'id': "cdadbc86-bb6c-45aa-a328-8064e47944fb"}
         count = 0
         if (self.args.json == False):
-            print("Running Playbook %s ID %s for INV %s" % (val['name'], rb['id'], self.dummy))
+            self.logger.log(cf.Logger.DEBUG, "Running Playbook %s ID %s for INV %s" % (val['name'], rb['id'], self.dummy))
         while(True):
             pb = self.findPB(rb['id'], d)
             if (pb == None):

@@ -65,13 +65,16 @@ PUBLISH_ONLY = False
 
 # Cutoff size to gzip commands
 CUTOFF_SIZE = 10 * 1024
-def runCLICMD(cmd):
+def runCLICMD(cmd, logger):
     out = subprocess.Popen(cmd, shell=True,
                stdout=subprocess.PIPE, 
                stderr=subprocess.STDOUT)
     stdout,stderr = out.communicate()
-    print(stdout)
-    print(stderr)
+    logger.log(cf.Logger.DEBUG, "STDOUT: %r" % (stdout))
+
+    if stderr:
+        logger.log(cf.Logger.ERROR, "STDERR: %r" % (stderr))
+
     return str.lstrip(stdout)
 
 def exec_full(filepath, logger):
@@ -198,7 +201,7 @@ class Run():
             data = json.loads(val['E3One'])
             data2 = data['args']['command']
             self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
-            o = runCLICMD(data2)
+            o = runCLICMD(data2, self.logger)
 
         except Exception:
             tb_output = StringIO()
@@ -231,6 +234,7 @@ class Run():
         self.loadTemplate(self.args)
         CURRENT_ENV = self.args.login
         USERS.append({'username': self.args.username, 'passwd': self.args.password})
+        self.logger.log(cf.Logger.DEBUG, "Waiting for commands...")
         cf.gql_main_loop(CURRENT_ENV, self.logger, USERS, BLACKLISTED_TOKENS,
         USER_LIST, USER_DICT, USERNAME_DICT, SLEEP_TIME,
         [
@@ -270,7 +274,7 @@ class Run():
         self.cleanup_sub_mgr(cb_data)
 
     def on_close(self, cb_data):
-        print("Run: GOT SOCKET CLOSE")
+        self.logger.log(cf.Logger.ERROR, "Run: GOT SOCKET CLOSE")
         #cleanup_sub_mgr(cb_data)
 
     def handle_new_sandbox_execution(self, message, cb_data):
