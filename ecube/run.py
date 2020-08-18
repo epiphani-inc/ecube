@@ -136,7 +136,8 @@ class Run():
                         cf.update_obj(d['endpoint'], d['id_token'], "Connectors", self.connector[val['name']])
             for k, v in iteritems(self.connector):
                 if not 'id' in v:
-                    cf.insert_obj(d['endpoint'], d['id_token'], 'Connectors', v)
+                    new_conn = cf.insert_obj(d['endpoint'], d['id_token'], 'Connectors', v)
+                    v['id'] = new_conn['id']
         except Exception as e:
             tb_output = StringIO()
             traceback.print_exc(file=tb_output)
