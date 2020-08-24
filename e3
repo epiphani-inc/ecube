@@ -30,6 +30,8 @@ from ecube import parser
 
 
 def main():
+    # Set the region for cognito authentication
+    os.environ['AWS_DEFAULT_REGION'] = 'us-west-2'
     return parser.main()
 
 
