@@ -38,6 +38,8 @@ from jinja2 import Environment, FileSystemLoader
 import subprocess
 import inspect
 import copy 
+import six
+
 # Set your users information in the list below
 USERS = [
 ]
@@ -66,6 +68,8 @@ PUBLISH_ONLY = False
 # Cutoff size to gzip commands
 CUTOFF_SIZE = 10 * 1024
 def runCLICMD(cmd, logger):
+    logger.log(cf.Logger.DEBUG, "Got command execution request: %r" % (cmd))
+    print("Got command execution request: %r" % (cmd))
     out = subprocess.Popen(cmd, shell=True,
                stdout=subprocess.PIPE, 
                stderr=subprocess.STDOUT)
@@ -75,7 +79,7 @@ def runCLICMD(cmd, logger):
     if stderr:
         logger.log(cf.Logger.ERROR, "STDERR: %r" % (stderr))
 
-    return str.lstrip(stdout)
+    return str.lstrip(stdout if six.PY2 else stdout.decode('utf-8'))
 
 def exec_full(filepath, logger):
     ret_val = True
@@ -235,6 +239,7 @@ class Run():
         CURRENT_ENV = self.args.login
         USERS.append({'username': self.args.username, 'passwd': self.args.password})
         self.logger.log(cf.Logger.DEBUG, "Waiting for commands...")
+        print("Waiting for commands...")
         cf.gql_main_loop(CURRENT_ENV, self.logger, USERS, BLACKLISTED_TOKENS,
         USER_LIST, USER_DICT, USERNAME_DICT, SLEEP_TIME,
         [
