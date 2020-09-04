@@ -103,6 +103,8 @@ log_file = foo.log <OPTIONAL>
         pbn.add_argument('--name',  dest="PBName", required=True, help='the name of the playbook to run')
         pbn.add_argument('--vars',  dest="PBVars", required=False, help='the variables to pass to playbook')
         pbn.add_argument('--json',  type=bool, required=False, help='output only json', default=False)
+        pbc = s1.add_parser("create", help="create a playbook")
+        pbc.add_argument('--directory', required=True, help='the path to the playbook')
 
         args = parser.parse_args(sys.argv[2:])
         self.addKeys(args)

@@ -1,0 +1,26 @@
+version: 1
+name: getEC2CLI12
+description: This is a descrption 
+plays: 
+  - 
+    id: one
+    name: getInstances 
+    connector: AWS - EC2
+    action: aws-ec2-describe-instances
+    arguments: 
+      region: us-west-2
+    config: 
+      access_key: <>
+      secret_key: <>
+      defaultRegion: us-west-2
+  - 
+    id: start
+  -
+    id: end
+links:
+  -
+    from: start
+    to: one
+  - 
+    from: one
+    to: end 

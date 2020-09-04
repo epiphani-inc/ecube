@@ -35,6 +35,8 @@ import traceback
 import signal
 import ecube.gql_operations.Mutations as Mutations
 import ecube.gql_operations.Queries as Queries
+import base64
+import codecs
 
 ENVIRONMENTS = environments.ENVIRONMENTS
 ARTIBOT_USERNAME = "artibot"
@@ -828,4 +830,26 @@ def update_model_objects(endpoint, id_token, model_name,
     for tmp_obj in obj_list:
         update_obj(endpoint, id_token, model_name, tmp_obj,
             custom_query=custom_query, mutations_module=mutations_module)
+
+# Gzip a provided string
+def gzip_string(input_str):
+    """
+    out = StringIO.StringIO()
+    f = gzip.GzipFile(fileobj=out, mode="w")
+    f.write(input_str)
+    return out.getvalue()
+    """
+    if six.PY3 and type(input_str) == str:
+        input_str = input_str.encode()
+    return codecs.encode(input_str, 'zlib')
+
+#Gunzip a provided string
+def gunzip_bytes(input_bytes):
+    return codecs.decode(input_bytes, 'zlib')
+
+def b64encode(input_bytes):
+    return base64.b64encode(input_bytes)
+
+def b64decode(input_str):
+    return base64.b64decode(input_str)
 
