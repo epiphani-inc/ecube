@@ -102,6 +102,7 @@ def parsePlaybook(args, pb):
         arr = {
             'id': play['id'],
             'text': play['name'],
+            'commandName': play['action'],
             'category': cat,
             'key': play['id'],
             'full': {
@@ -117,6 +118,9 @@ def parsePlaybook(args, pb):
                 }
             }
         }
+        if 'iconPath' in play['ConfigData']:
+            arr['icon'] =play['ConfigData']['iconPath']
+
         if pa != None:
             arr['portArray'] = pa
 
