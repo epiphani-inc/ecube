@@ -48,6 +48,10 @@ class Playbook(object):
 
         rtName = ff['pbFile']['name']
         rtDesc = ff['pbFile']['description']
+        rbVars = None
+        if ('arguments' in ff['pbFile']):
+            rbVars = ff['pbFile']['arguments']
+
         ff.pop('pbFile', None)
         d = self.env
 
@@ -58,6 +62,9 @@ class Playbook(object):
             'type': 'longRunBook',
             'longSave': json.dumps(ff)
         }
+        if rbVars != None:
+            cmd['rbVars'] = json.dumps(rbVars)
+
         try:
             link = cf.insert_obj(
                 d['endpoint'], d['id_token'], "AllRunbooks", cmd)

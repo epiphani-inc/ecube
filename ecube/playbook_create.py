@@ -5,6 +5,9 @@ import glob
 import os
 import copy
 import json
+from StringIO import StringIO
+import traceback
+
 PLAYBOOK_FILE = "playbook.yml"
 VARIABLE_FILE = "variables.yml"
 CONNECTORS_DIR = "connectors/"
@@ -64,6 +67,8 @@ def findAllConnectors(pb):
         if (val['commandsType'] == 'gzip/b64encoded'):
             tb = cf.b64decode(val['commands'])
             val['commands'] = json.loads(cf.gunzip_bytes(tb))
+        else:
+            val['commands'] = json.loads(val['commands'])
 
     # except Exception as e:
     #     pb.logger.log(cf.Logger.ERROR, "DIC: %r" % (e))
@@ -82,6 +87,7 @@ def parsePlaybook(args, pb):
             for cmd in coninfo['commands']:
                 if (cmd['name'] == play['action']):
                     args = copy.deepcopy(cmd)
+                    break 
             play['ConfigData'] = copy.deepcopy(coninfo)
             play['ConfigData'].pop('commands', None)
 
@@ -99,6 +105,15 @@ def parsePlaybook(args, pb):
         else:
             pa = [{'Path': '#003D7F'}]
         mainForm = {'form': {'name': play['name'], 'ContextPath': ''}}
+        if ('rules' in play):
+            mainForm['rules'] = play['rules']
+        if ('config' not in play):
+            play['config'] = {}
+        if ('arguments' not in play):
+            play['arguments'] = {}
+        else:
+            if ('column-vars' in play['arguments']):
+                play['arguments']['column-vars'] = json.dumps(play['arguments']['column-vars'])
         arr = {
             'id': play['id'],
             'text': play['name'],
@@ -112,7 +127,7 @@ def parsePlaybook(args, pb):
                     'formdata': play['config'],
                 },
                 'command': {
-                    'formdata': play['config'],
+                    'formdata': play['arguments'],
                     'name': play['action'],
                     'configData': args
                 }

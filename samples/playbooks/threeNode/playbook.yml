@@ -1,0 +1,71 @@
+version: 1
+name: getEC2New8
+description: This is a descrption 
+arguments: 
+  region: "string"
+plays: 
+  - 
+    id: one
+    name: getInstances 
+    connector: AWS - EC2
+    action: aws-ec2-describe-instances
+    arguments: 
+      region: us-west-2
+    config: 
+      access_key: <>
+      secret_key: <>
+      defaultRegion: us-west-2
+    rules:
+      vars: 
+      - 
+        actions:
+        - 
+          ActionType: Store Column
+          ContextPath: AWS.EC2.Instances.State.Name
+          xVarName: awsState
+        - 
+          ActionType: Store Column
+          ContextPath: AWS.EC2.Instances.InstanceId
+          xVarName: awsId
+  - 
+    id: two
+    name: make table 
+    action: MarkDownTbl
+    connector: MarkDownTbl
+    arguments: 
+      column-vars: 
+      - 
+        command: "{{awsState}}"
+      - 
+        command: "{{awsId}}"
+    rules:
+      vars: 
+      - 
+        actions:
+        - 
+          ActionType: Store Rows
+          VarName: tableOut
+  - 
+    id: three
+    name: Send Output
+    connector: UserMessage
+    action: message 
+    arguments:
+      message: Output {{tableOut}}
+  - 
+    id: start
+  -
+    id: end
+links:
+  -
+    from: start
+    to: one
+  - 
+    from: one
+    to: two
+  - 
+    from: two
+    to: three 
+  - 
+    from: three 
+    to: end 
