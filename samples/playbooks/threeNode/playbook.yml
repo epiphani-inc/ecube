@@ -1,5 +1,5 @@
 version: 1
-name: getEC2New8
+name: getEC2New9
 description: This is a descrption 
 arguments: 
   region: "string"
@@ -10,11 +10,11 @@ plays:
     connector: AWS - EC2
     action: aws-ec2-describe-instances
     arguments: 
-      region: us-west-2
+      region: '{{region}}'
     config: 
       access_key: <>
-      secret_key: <>
-      defaultRegion: us-west-2
+      secret_key: <> 
+      defaultRegion: '{{region}}'
     rules:
       vars: 
       - 
@@ -22,11 +22,14 @@ plays:
         - 
           ActionType: Store Column
           ContextPath: AWS.EC2.Instances.State.Name
+          xVar: State Name
           xVarName: awsState
         - 
           ActionType: Store Column
           ContextPath: AWS.EC2.Instances.InstanceId
+          xVar: InstanceId
           xVarName: awsId
+        ctxPathList: 2
   - 
     id: two
     name: make table 

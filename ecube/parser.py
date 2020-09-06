@@ -105,6 +105,7 @@ log_file = foo.log <OPTIONAL>
         pbn.add_argument('--json',  type=bool, required=False, help='output only json', default=False)
         pbc = s1.add_parser("create", help="create a playbook")
         pbc.add_argument('--directory', required=True, help='the path to the playbook')
+        pbc.add_argument('--name',  dest="PBName", required=False, help='overwrite the name of the playbook in yaml')
 
         args = parser.parse_args(sys.argv[2:])
         self.addKeys(args)

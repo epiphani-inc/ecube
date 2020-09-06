@@ -44,11 +44,14 @@ class Playbook(object):
 
     def create(self):
         ff = pc.readDirectory(self)
-        print "Creating Playbook", ff['pbFile']['name']
 
         rtName = ff['pbFile']['name']
         rtDesc = ff['pbFile']['description']
         rbVars = None
+        if (self.args.PBName):
+            rtName = self.args.PBName
+        print "Creating Playbook",rtName
+
         if ('arguments' in ff['pbFile']):
             rbVars = ff['pbFile']['arguments']
 
