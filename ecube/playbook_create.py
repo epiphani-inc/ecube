@@ -106,7 +106,21 @@ def parsePlaybook(args, pb):
             pa = [{'Path': '#003D7F'}]
         mainForm = {'form': {'name': play['name'], 'ContextPath': ''}}
         if ('rules' in play):
-            mainForm['rules'] = play['rules']
+            if ('vars' in play['rules']):
+                for vv in play['rules']['vars']:
+                    if ('matches' not in vv):
+                        vv['matches'] = ""
+                    if ('actions' in vv):
+                        for aa in vv['actions']:
+                            if ('xVarName' not in aa):
+                                aa['xVarName'] = ""
+                            if ('VarName' not in aa):
+                                aa['VarName'] = ""
+                
+                # if ('matches' not in play['rules']['vars']):
+                #     play['rules']['vars']['matches'] = []
+            mainForm['form']['rules'] = play['rules']
+
         if ('config' not in play):
             play['config'] = {}
         if ('arguments' not in play):
