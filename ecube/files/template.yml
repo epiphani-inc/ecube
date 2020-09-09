@@ -6,11 +6,6 @@ display: CLI Cmd - {{cliName}}
 category: CLI Cmd
 description: Custom
 configuration:
-- name: blank
-  required: false
-  defaultvalue: blank
-  type: 0
-  display: blank
 script:
   script: ''
   type: python
