@@ -79,7 +79,9 @@ class Playbook(object):
             'description': rtDesc,
             'author': self.args.username,
             'type': 'longRunBook',
-            'longSave': json.dumps(ff)
+            'longSave': json.dumps(ff),
+            'commands': None, 
+            'RunBookConnectors': None, 
         }
         if rbVars != None:
             cmd['rbVars'] = json.dumps(rbVars)
@@ -90,7 +92,7 @@ class Playbook(object):
                 use_local_instance=self.local_install)
             return link
         except Exception as e:
-            self.logger.log(cf.Logger.ERROR, "Executed RB CREATE : %r" % (e))
+            self.logger.log(cf.Logger.ERROR, "Error creating playbook: %r" % (e))
             return
 
     def show(self):
