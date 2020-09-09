@@ -96,7 +96,7 @@ def parsePlaybook(args, pb):
             play['ConfigData'].pop('commands', None)
         else: 
             if (play['id'] != 'start' and play['id'] != 'end'):
-                print "ERROR: Connector not found:", connector
+                print("ERROR: Connector not found:", connector)
                 sys.exit(-1)
 
         cat = "command"
