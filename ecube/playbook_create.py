@@ -65,7 +65,7 @@ def findAllConnectors(pb):
                                              "Connectors", None),
                                          {}, d['current_env'], d['username'], 1, 0,
                                          USER_LIST, USER_DICT, USERNAME_DICT, pb.logger,
-                                         use_local_install=pb.local_install)
+                                         use_local_instance=pb.local_install)
     for val in obj:
         CONNECTOR_DICT[val['name']] = val
         if (val['commandsType'] == 'gzip/b64encoded'):
