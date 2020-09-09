@@ -1,0 +1,24 @@
+version: 1
+name: getInterface1
+description: This is a descrption 
+plays: 
+  - 
+    id: one
+    name: getLaptop 
+    connector: pawanLaptop
+    action: run-cli
+    arguments: 
+      command: "ifconfig -a "
+    config: 
+      blank: blank
+  - 
+    id: start
+  -
+    id: end
+links:
+  -
+    from: start
+    to: one
+  - 
+    from: one
+    to: end 
