@@ -9,8 +9,6 @@ plays:
     action: run-cli
     arguments: 
       command: "ifconfig -a "
-    config: 
-      blank: blank
   - 
     id: start
   -
