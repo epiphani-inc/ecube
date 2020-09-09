@@ -5,7 +5,10 @@ import glob
 import os
 import copy
 import json
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except:
+    from io import StringIO
 import traceback
 
 PLAYBOOK_FILE = "playbook.yml"
@@ -61,7 +64,8 @@ def findAllConnectors(pb):
                                          (d['endpoint'], d['id_token'],
                                              "Connectors", None),
                                          {}, d['current_env'], d['username'], 1, 0,
-                                         USER_LIST, USER_DICT, USERNAME_DICT, pb.logger)
+                                         USER_LIST, USER_DICT, USERNAME_DICT, pb.logger,
+                                         use_local_install=pb.local_install)
     for val in obj:
         CONNECTOR_DICT[val['name']] = val
         if (val['commandsType'] == 'gzip/b64encoded'):

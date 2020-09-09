@@ -48,6 +48,11 @@ username = <epiphani username> <REQUIRED>
 password = <epiphani password> <REQUIRED>
 login = URL to epiphani <OPTIONAL>
 log_file = foo.log <OPTIONAL>
+local_install = true <OPTIONAL | Use local installation | Default: false>
+local_install_host = localhost <OPTIONAL | IP/FQDN of local installation | Default: localhost>
+local_install_port = 31050 <OPTIONAL | GraphQL server port number | Default: 31050>
+
+If you set local_install_host or local_install_port, local_install is automatically set to true
 ''')
         config = configparser.ConfigParser()
         FN = os.path.expanduser('~/.e3.ini')

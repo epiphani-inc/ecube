@@ -27,7 +27,7 @@ import zlib
 from tabulate import tabulate
 
 import ecube.gql as cf
-import playbook_create as pc
+import ecube.playbook_create as pc
 
 class Playbook(object):
     def __init__(self, args):
@@ -39,8 +39,24 @@ class Playbook(object):
         self.logger = cf.Logger(log_to_file=True if tmp_lf else False,
                                 log_file=tmp_lf)
         self.logger.set_log_level(cf.Logger.INFO)
-        self.env = cf.initEnv(args.login, self.logger)
         self.args = args
+        self.local_install = False
+
+        if 'local_install' in self.args and self.args.local_install == 'true':
+            self.local_install = True
+
+        if 'local_install_host' in self.args and self.args.local_install_host:
+            self.local_install = True
+            cf.set_local_gql_host(self.args.local_install_host)
+        
+        if 'local_install_port' in self.args and self.args.local_install_port:
+            self.local_install = True
+            cf.set_local_gql_port(self.args.local_install_port)
+
+        if not self.local_install:
+            self.env = cf.initEnv(args.login, self.logger)
+        else:
+            self.env = cf.init_local_env(args.username)
 
     def create(self):
         ff = pc.readDirectory(self)
@@ -50,7 +66,7 @@ class Playbook(object):
         rbVars = None
         if (self.args.PBName):
             rtName = self.args.PBName
-        print "Creating Playbook",rtName
+        print("Creating Playbook",rtName)
 
         if ('arguments' in ff['pbFile']):
             rbVars = ff['pbFile']['arguments']
@@ -70,7 +86,8 @@ class Playbook(object):
 
         try:
             link = cf.insert_obj(
-                d['endpoint'], d['id_token'], "AllRunbooks", cmd)
+                d['endpoint'], d['id_token'], "AllRunbooks", cmd,
+                use_local_instance=self.local_install)
             return link
         except Exception as e:
             self.logger.log(cf.Logger.ERROR, "Executed RB CREATE : %r" % (e))
@@ -80,7 +97,8 @@ class Playbook(object):
         d = self.env
         try:
             obj = cf.get_model_objects(
-                d['endpoint'], d['id_token'], "AllRunbooks", None)
+                d['endpoint'], d['id_token'], "AllRunbooks", None,
+                use_local_instance=self.local_install)
             extract = {'name', 'id', 'author', 'updatedAt', 'rbVars'}
             arr = []
             for val in obj:
@@ -91,7 +109,7 @@ class Playbook(object):
             print(tabulate(arr, headers="keys"))
         except Exception as e:
             print("error ", e)
-            self.logger.log(cf.Logger.ERROR, "findAddWorkflow: %r" % (e))
+            self.logger.log(cf.Logger.ERROR, "show playbooks: %r" % (e))
 
     def run(self):
         self.dummy = self.findDummyInv()
@@ -102,20 +120,22 @@ class Playbook(object):
 
         try:
             obj = cf.get_model_objects(d['endpoint'], d['id_token'], "Investigation", {
-                                       'title': {'eq': 'dummy'}, 'from': {'eq': self.args.username}})
+                                       'title': {'eq': 'dummy'}, 'from': {'eq': self.args.username}},
+                                       use_local_instance=self.local_install)
             for val in obj:
                 if (val['title'] == 'dummy'):
                     INV = val['id']
                     return INV
             return None
         except Exception as e:
-            self.logger.log(cf.Logger.ERROR, "findAddWorkflow: %r" % (e))
+            self.logger.log(cf.Logger.ERROR, "findDummyInv: %r" % (e))
 
     def findRunPlaybook(self):
         d = self.env
         try:
             obj = cf.get_model_objects(d['endpoint'], d['id_token'], "AllRunbooks", {
-                                       'name': {'eq': self.args.PBName}})
+                                       'name': {'eq': self.args.PBName}},
+                                       use_local_instance=self.local_install)
             for val in obj:
                 if (val['name'] == self.args.PBName):
                     return self.runPB(val, d)
@@ -173,7 +193,8 @@ class Playbook(object):
         }
         try:
             link = cf.insert_obj(
-                d['endpoint'], d['id_token'], "ExecutedRunbooks", cmd)
+                d['endpoint'], d['id_token'], "ExecutedRunbooks", cmd,
+                use_local_instance=self.local_install)
             return link
         except Exception as e:
             self.logger.log(cf.Logger.ERROR, "Executed RB CREATE : %r" % (e))
@@ -186,7 +207,8 @@ class Playbook(object):
                                                  (d['endpoint'], d['id_token'],
                                                   "ExecutedRunbooks", cmd),
                                                  {}, d['current_env'], cf.ARTIBOT_USERNAME, 1, 0,
-                                                 [], {}, {}, self.logger)
+                                                 [], {}, {}, self.logger,
+                                                 use_local_instance=self.local_install)
             if (old):
                 return old
         except Exception as e:

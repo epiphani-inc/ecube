@@ -35,17 +35,21 @@ import traceback
 import signal
 import ecube.gql_operations.Mutations as Mutations
 import ecube.gql_operations.Queries as Queries
+import ecube.gql_operations.Localops as Localops
 import base64
 import codecs
+import six
+import re
+from future.utils import iteritems
 
 ENVIRONMENTS = environments.ENVIRONMENTS
 ARTIBOT_USERNAME = "artibot"
 
 # Read GQL URL
-LOCAL_GQL_HOST = os.environ.get('LOCAL_GQL_HOST', "epic-sandbox")
-LOCAL_GQL_PORT = os.environ.get('LOCAL_GQL_PORT', "4000")
+LOCAL_GQL_HOST = os.environ.get('LOCAL_GQL_HOST', "localhost")
+LOCAL_GQL_PORT = os.environ.get('LOCAL_GQL_PORT', "31050")
 LOCAL_GQL_FRAG = "%s:%s" % (LOCAL_GQL_HOST, LOCAL_GQL_PORT)
-GQL_PSK = os.environ.get("GQL_PSK", None)
+GQL_PSK = os.environ.get("GQL_PSK", 'SAANPD00D')
 
 LOG_DIR = "/var/log/epiphani/"
 
@@ -194,6 +198,26 @@ class Logger():
             pprint.pprint(log_obj, stream=self.stream)
             self.write("\n")
         self.flush()
+
+def set_gql_psk(gql_psk):
+    global GQL_PSK
+    GQL_PSK = gql_psk
+
+def set_local_gql_host(lgh):
+    global LOCAL_GQL_HOST
+    LOCAL_GQL_HOST = lgh
+
+def set_local_gql_port(lgp):
+    global LOCAL_GQL_PORT
+    LOCAL_GQL_PORT = lgp
+
+def init_local_env(username):
+    return {
+        'endpoint': "http://%s:%s/graphql" % (LOCAL_GQL_HOST, LOCAL_GQL_PORT),
+        'id_token': None,
+        'username': username,
+        'current_env': None,
+    }
 
 # calculate and return the md5sum of the contents of a given file
 def get_file_md5sum(file_name):
@@ -515,6 +539,82 @@ def execute_function_with_retry(func, args, kwargs, current_env,
                 logger.log(Logger.ERROR, "Unhandled error, cannot retry")
                 raise
 
+def plural(m):
+    if (m[-1] == 's' or m[-1] == 'h'):
+        return (m+"es")
+    else:
+        return (m+"s")
+
+def make_lower(val):
+    return val[0].lower()  + val[1:]
+
+def capitalize(val):
+    if not isinstance(val, six.string_types):
+        return ''
+    s = val[0].upper()
+    t = ""
+    i = 1
+    while i < len(val):
+        if re.match(r'[A-Z]', val[i]):
+            t += val[i]
+        elif (len(t) > 0):
+            s = s + t[0:-1].lower() + t[len(t) - 1] + val[i:]
+            return s
+        else:
+            s = s + val[i:]
+            return s
+
+def load_content(content):
+    return json.loads(content if six.PY2 else content.decode('utf-8'))
+
+def add_model_mapping(model_name, obj):
+    mmap = Localops.MODEL_MAPPING.get(model_name, None)
+    if mmap:
+        for (k, v) in iteritems(mmap):
+            obj[k] = {"connect": {"id": obj[v]}}
+    return obj
+
+def add_model_relation(model_name, obj):
+    mr = Localops.MODEL_RELATION.get(model_name, None)
+    if mr:
+        for field in mr:
+            obj[field] = {"set":obj[field]}
+    return obj
+
+def convert_filter(aws_filter):
+    if not aws_filter:
+        return aws_filter
+    local_filter = {}
+    for (key, value) in iteritems(aws_filter):
+        if isinstance(value, six.string_types):
+            local_filter[key] = value
+            continue
+        for (k, v) in iteritems(value):
+            if k == 'eq':
+                new_key = key + '_' + k
+            elif k == 'ne':
+                new_key = key + '_not' + k
+            elif k == 'le':
+                new_key = key + '_le' + k
+            elif k == 'lt':
+                new_key = key + '_lt' + k
+            elif k == 'gt':
+                new_key = key + '_gt' + k
+            elif k == 'ge':
+                new_key = key + '_ge' + k
+            elif k == 'contains':  
+                new_key = key + '_contains' + k
+            elif k == 'notContains':
+                new_key = key + '_not_contains' + k
+            elif k == 'between':
+                new_key = key +'_not_starts_with' + k
+            elif k == 'beginsWith':
+                new_key = key +'_starts_with' + k
+            else:
+                new_key = key
+            local_filter[new_key] = v
+    return local_filter
+
 # Get the Auth header for passing to a requests library call (GET, POST, etc.)
 def get_auth_header(id_token, use_local_instance=False):
     if not use_local_instance:
@@ -531,7 +631,9 @@ def remove_obj(endpoint, id_token, model_name, obj,
     # Get the header
     auth_header = get_auth_header(id_token, use_local_instance=use_local_instance)
 
-    if not mutations_module:
+    if use_local_instance:
+        mutations_module = Localops
+    elif not mutations_module:
         mutations_module = Mutations
 
     # Set the input for delete object query
@@ -539,7 +641,9 @@ def remove_obj(endpoint, id_token, model_name, obj,
     updated_model_name = model_name[0].upper() + model_name[1:]
     connector_name = "delete" + updated_model_name
 
-    if custom_query:
+    if use_local_instance:
+        connector = mutations_module.LOCALOPS[connector_name.lower()]
+    elif custom_query:
         connector = custom_query
     else:
         connector = mutations_module.MUTATIONS[connector_name.lower()]
@@ -549,7 +653,7 @@ def remove_obj(endpoint, id_token, model_name, obj,
     try:
         r = requests.post(endpoint, headers=auth_header,
             json={"query": connector, "variables": vars})
-        res = json.loads(r.content)
+        res = load_content(r.content)
     except Exception as e:
         s = "Delete object request failed: " + str(e)
         raise DeleteObjectError(s)
@@ -571,15 +675,26 @@ def insert_obj(endpoint, id_token, model_name, obj,
     # Get the header
     auth_header = get_auth_header(id_token, use_local_instance=use_local_instance)
 
-    if not mutations_module:
+    if use_local_instance:
+        mutations_module = Localops
+    elif not mutations_module:
         mutations_module = Mutations
 
     # Set the input for insert object query
+    if use_local_instance:
+        deleteList=['UsersCanView', 'UsersCanAccess', "GroupsCanView", 'GroupsCanAccess']
+        for elem in deleteList:
+            if elem in obj:
+                del obj[elem]
+        obj = add_model_mapping(model_name, obj)
+        obj = add_model_relation(model_name, obj)
     vars = {"input": obj}
     updated_model_name = model_name[0].upper() + model_name[1:]
     connector_name = "create" + updated_model_name
 
-    if custom_query:
+    if use_local_instance:
+        connector = mutations_module.LOCALOPS[connector_name.lower()]
+    elif custom_query:
         connector = custom_query
     else:
         connector = mutations_module.MUTATIONS[connector_name.lower()]
@@ -589,7 +704,7 @@ def insert_obj(endpoint, id_token, model_name, obj,
     try:
         r = requests.post(endpoint, headers=auth_header,
             json={"query": connector, "variables": vars})
-        res = json.loads(r.content)
+        res = load_content(r.content)
     except Exception as e:
         s = "Insert object request failed: " + str(e)
         raise InsertObjectError(s)
@@ -613,25 +728,38 @@ def update_obj(endpoint, id_token, model_name, obj,
     # Get the header
     auth_header = get_auth_header(id_token, use_local_instance=use_local_instance)
 
-    # Set the input for update object query
-    vars = {"input": obj}
     updated_model_name = model_name[0].upper() + model_name[1:]
     connector_name = "update" + updated_model_name
 
-    if not mutations_module:
+    if use_local_instance:
+        mutations_module = Localops
+    elif not mutations_module:
         mutations_module = Mutations
 
-    if custom_query:
+    if use_local_instance:
+        connector = mutations_module.LOCALOPS[connector_name.lower()]
+    elif custom_query:
         connector = custom_query
     else:
         connector = mutations_module.MUTATIONS[connector_name.lower()]
+
+    # Set the input for update object query
+    if use_local_instance:
+        deleteList=['UsersCanView', 'UsersCanAccess', "GroupsCanView", 'GroupsCanAccess']
+        for elem in deleteList:
+            if elem in obj:
+                del obj[elem]
+        # obj = add_model_mapping(model_name, obj)
+        obj = add_model_relation(model_name, obj)
+
+    vars = {"input": obj}
 
     # Send the POST request.  All queries & mutations are sent
     # as a post request in aws-amplify/graphql, in JSON format.
     try:
         r = requests.post(endpoint, headers=auth_header,
             json={"query": connector, "variables": vars})
-        res = json.loads(r.content)
+        res = load_content(r.content)
     except Exception as e:
         s = "Update object request failed: " + str(e)
         raise UpdateObjectError(s)
@@ -688,15 +816,22 @@ def get_obj(endpoint, id_token, model_name, vars,
 
     if not queries_module:
         queries_module = Queries
-
-    if secondaryKeyFunction:
+    if use_local_instance:
+        updated_model_name = model_name[0].upper() + model_name[1:]
+        connector_name = "get" + updated_model_name
+    elif secondaryKeyFunction:
         connector_name = model_name
         updated_model_name = model_name
     else:
         updated_model_name = model_name[0].upper() + model_name[1:]
         connector_name = "get" + updated_model_name
 
-    if custom_query:
+    filter_vars = vars
+    if use_local_instance:
+        connector = Localops.LOCALOPS[connector_name.lower()]
+        filter_vars = {}
+        filter_vars = {'filter': vars}
+    elif custom_query:
         connector = custom_query
     else:
         connector = queries_module.QUERIES[connector_name.lower()]
@@ -705,9 +840,9 @@ def get_obj(endpoint, id_token, model_name, vars,
     # as a post request in aws-amplify/graphql, in JSON format.
     try:
         r = requests.post(endpoint, headers=auth_header,
-                json={"query": connector, "variables": vars})
+                json={"query": connector, "variables": filter_vars})
 
-        res = json.loads(r.content)
+        res = load_content(r.content)
     except Exception as e:
         s = "Get obj request failed: " + str(e)
         raise GetObjError(s)
@@ -715,6 +850,13 @@ def get_obj(endpoint, id_token, model_name, vars,
     if r.status_code == 200:
         # Even if the return code was 200, we could still have errors.
         if not 'errors' in res:
+            if use_local_instance:
+                connector_name = make_lower(model_name)
+                if res['data'][connector_name]:
+                    return res['data'][connector_name]
+                else:
+                    s = "Could not find object: %s" % (connector_name)
+                    raise GetObjError(s)
             if not secondaryKeyFunction:
                 return res['data'][connector_name]
 
@@ -734,18 +876,30 @@ def get_obj(endpoint, id_token, model_name, vars,
 # Get all the objects of a given model from a given starting point
 def get_objs(endpoint, starting_from, id_token, model_name, filter,
              secondaryKeyFunction=False, custom_query=None,
-             queries_module=None, use_local_instance=False):
+             queries_module=None, use_local_instance=False,
+             custom_query_filter=None):
     # Get the header
-    auth_header = get_auth_header(id_token, use_local_instance=use_local_instance)
+    auth_header = get_auth_header(id_token,
+        use_local_instance=use_local_instance)
 
     if not queries_module:
         queries_module = Queries
 
     # Set the input for list objects query
-    vars = {"limit": 100, "nextToken": starting_from}
+    limit_count = 100
+    vars = {}
+    if use_local_instance:
+        if filter:
+            vars['where'] = convert_filter(filter)
+        vars['skip'] = starting_from
+        vars['take'] = limit_count
+    else:
+        vars = {"limit": limit_count, "nextToken": starting_from}
+        if (filter):
+            vars['filter'] = filter
 
-    if filter:
-        vars['filter'] = filter
+    if custom_query_filter:
+        vars.update(custom_query_filter)
 
     if secondaryKeyFunction:
         connector_name = model_name
@@ -754,7 +908,12 @@ def get_objs(endpoint, starting_from, id_token, model_name, filter,
         updated_model_name = model_name[0].upper() + model_name[1:]
         connector_name = "list" + updated_model_name + "s"
 
-    if custom_query:
+    if use_local_instance:
+        updated_model_name = capitalize(model_name)
+        connector_name = 'list' + plural(updated_model_name)
+        connector = Localops.LOCALOPS[connector_name.lower()]
+        connector_name = plural(make_lower(model_name))
+    elif custom_query:
         connector = custom_query
     else:
         connector = queries_module.QUERIES[connector_name.lower()]
@@ -764,7 +923,7 @@ def get_objs(endpoint, starting_from, id_token, model_name, filter,
     try:
         r = requests.post(endpoint, headers=auth_header,
             json={"query": connector, "variables": vars})
-        res = json.loads(r.content)
+        res = load_content(r.content)
     except Exception as e:
         s = "List objects request failed: " + str(e)
         raise ListObjectsError(s)
@@ -774,8 +933,15 @@ def get_objs(endpoint, starting_from, id_token, model_name, filter,
         if not 'errors' in res:
             #print "Got Connectors"
             #print res['data']['listConnectorss']['items']
-            return (res['data'][connector_name]['items'],
-                    res['data'][connector_name]['nextToken'])
+            if use_local_instance:
+                if len(res['data'][connector_name]) == limit_count:
+                    nextToken = starting_from + limit_count
+                else:
+                    nextToken = 0
+                return (res['data'][connector_name], nextToken)
+            else:
+                return (res['data'][connector_name]['items'],
+                        res['data'][connector_name]['nextToken'])
         else:
             s = "Failed to get objects: " + updated_model_name \
                 + " ERROR: " + res['errors'][0]['message']

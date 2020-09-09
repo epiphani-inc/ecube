@@ -114,6 +114,21 @@ class Run():
         self.logger.set_log_level(cf.Logger.INFO)
         self.args = args 
         self.connector = {}
+        self.local_install = False
+
+        if 'local_install' in self.args and self.args.local_install:
+            self.local_install = True
+        
+        if 'local_install_host' in self.args and self.args.local_install_host:
+            self.local_install = True
+            cf.set_local_gql_host(self.args.local_install_host)
+        
+        if 'local_install_port' in self.args and self.args.local_install_port:
+            self.local_install = True
+            cf.set_local_gql_port(self.args.local_install_port)
+
+        if self.local_install:
+            self.env = cf.init_local_env(args.username)
 
         try:
             if self.args.publish_playbooks:
@@ -131,19 +146,23 @@ class Run():
             obj = cf.execute_function_with_retry(cf.get_model_objects,
                 (d['endpoint'], d['id_token'], "Connectors", None),
                 {}, d['current_env'], d['username'], 1, 0,
-                USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
+                USER_LIST, USER_DICT, USERNAME_DICT, self.logger,
+                use_local_instance=self.local_install)
             for val in obj:
                 if ((val['name'] in self.connector) and
                     (val['category'] == self.connector[val['name']]['category']) and
                     (val['source'] == self.connector[val['name']]['source'])):
                     if not UPDATE_CONNECTORS:
-                        cf.remove_obj(d['endpoint'], d['id_token'],"Connectors", val)
+                        cf.remove_obj(d['endpoint'], d['id_token'],"Connectors", val,
+                            use_local_instance=self.local_install)
                     else:
                         self.connector[val['name']]['id'] = val['id']
-                        cf.update_obj(d['endpoint'], d['id_token'], "Connectors", self.connector[val['name']])
+                        cf.update_obj(d['endpoint'], d['id_token'], "Connectors", self.connector[val['name']],
+                            use_local_instance=self.local_install)
             for k, v in iteritems(self.connector):
                 if not 'id' in v:
-                    new_conn = cf.insert_obj(d['endpoint'], d['id_token'], 'Connectors', v)
+                    new_conn = cf.insert_obj(d['endpoint'], d['id_token'], 'Connectors', v,
+                        use_local_instance=self.local_install)
                     v['id'] = new_conn['id']
         except Exception as e:
             tb_output = StringIO()
@@ -168,7 +187,8 @@ class Run():
         [
          (S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_new_sandbox_execution),
         ], APPSYNC_SUB_MGRS_MAP,
-        self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success)
+        self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success,
+        use_local_instance=self.local_install)
 
         #this should be read from requests 
     def loadTemplate(self, args):
@@ -224,7 +244,8 @@ class Run():
             _ = cf.execute_function_with_retry(cf.update_obj,
                 (cb_data['endpoint'], cb_data['id_token'], "EcubeSandboxExecution", update_dict),
                 {}, cb_data['current_env'], cb_data['username'], 1, 0,
-                USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
+                USER_LIST, USER_DICT, USERNAME_DICT, self.logger,
+                use_local_instance=self.local_install)
         except Exception:
             tb_output = StringIO()
             traceback.print_exc(file=tb_output)
@@ -245,7 +266,8 @@ class Run():
         [
          (S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_cli),
         ], APPSYNC_SUB_MGRS_MAP,
-        self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success)
+        self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success,
+        use_local_instance=self.local_install)
 
 
     def loadConnector(self):
@@ -321,7 +343,8 @@ class Run():
             _ = cf.execute_function_with_retry(cf.update_obj,
                 (cb_data['endpoint'], cb_data['id_token'], "EcubeSandboxExecution", update_dict),
                 {}, cb_data['current_env'], cb_data['username'], 1, 0,
-                USER_LIST, USER_DICT, USERNAME_DICT, self.logger)
+                USER_LIST, USER_DICT, USERNAME_DICT, self.logger,
+                use_local_instance=self.local_install)
         except Exception:
             tb_output = StringIO()
             traceback.print_exc(file=tb_output)
