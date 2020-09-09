@@ -22,6 +22,7 @@ SOFTWARE.
 import sys
 import ecube.gql as cf
 import ecube.gql_operations.Subscriptions as S
+import ecube.gql_operations.Localops as L
 from future.utils import iteritems
 import glob
 import yaml 
@@ -180,13 +181,22 @@ class Run():
         ## load the connector from the path
         self.loadConnector()
         
+        if self.local_install:
+            # Only subscribe to created events.
+            tmp_f = {
+                'where': {
+                    'mutation_in': ['CREATED']
+                }
+            }
+            query_list = [(L.LOCALOPS['onecubesandboxexecution'], self.handle_new_sandbox_execution, tmp_f)]
+        else:
+            query_list = [(S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_new_sandbox_execution)]
+
         CURRENT_ENV = self.args.login
         USERS.append({'username': self.args.username, 'passwd': self.args.password})
         cf.gql_main_loop(CURRENT_ENV, self.logger, USERS, BLACKLISTED_TOKENS,
         USER_LIST, USER_DICT, USERNAME_DICT, SLEEP_TIME,
-        [
-         (S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_new_sandbox_execution),
-        ], APPSYNC_SUB_MGRS_MAP,
+        query_list, APPSYNC_SUB_MGRS_MAP,
         self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success,
         use_local_instance=self.local_install)
 
@@ -219,7 +229,14 @@ class Run():
     def handle_cli(self, message, cb_data):
         upd_status = "DONE"
         try:
-            val = message['data']['onCreateEcubeSandboxExecution']
+            if self.local_install:
+                if message['data']['ecubeSandboxExecution']['mutation'] != 'CREATED':
+                    self.logger.log(cf.Logger.DEBUG, "Ignoring non-creation subscription message")
+                    return
+                val = message['data']['ecubeSandboxExecution']['node']
+            else:
+                val = message['data']['onCreateEcubeSandboxExecution']
+
             if (not self.isthisforme(val)):
                 return 
             data = json.loads(val['E3One'])
@@ -261,11 +278,21 @@ class Run():
         USERS.append({'username': self.args.username, 'passwd': self.args.password})
         self.logger.log(cf.Logger.DEBUG, "Waiting for commands...")
         print("Waiting for commands...")
+
+        if self.local_install:
+            # Only subscribe to created events.
+            tmp_f = {
+                'where': {
+                    'mutation_in': ['CREATED']
+                }
+            }
+            query_list = [(L.LOCALOPS['onecubesandboxexecution'], self.handle_cli, tmp_f)]
+        else:
+            query_list = [(S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_cli)]
+
         cf.gql_main_loop(CURRENT_ENV, self.logger, USERS, BLACKLISTED_TOKENS,
         USER_LIST, USER_DICT, USERNAME_DICT, SLEEP_TIME,
-        [
-         (S.SUBSCRIPTIONS['oncreateecubesandboxexecution'], self.handle_cli),
-        ], APPSYNC_SUB_MGRS_MAP,
+        query_list, APPSYNC_SUB_MGRS_MAP,
         self.on_error, self.on_sub_error, self.on_connection_error, self.on_close, self.on_subscription_success,
         use_local_instance=self.local_install)
 
@@ -314,7 +341,13 @@ class Run():
     def handle_single_execution(self, message, cb_data):
         upd_status = "DONE"
         try:
-            val = message['data']['onCreateEcubeSandboxExecution']
+            if self.local_install:
+                if message['data']['ecubeSandboxExecution']['mutation'] != 'CREATED':
+                    self.logger.log(cf.Logger.DEBUG, "Ignoring non-creation subscription message")
+                    return
+                val = message['data']['ecubeSandboxExecution']['node']
+            else:
+                val = message['data']['onCreateEcubeSandboxExecution']
             if (not self.isthisforme(val)):
                 return 
             self.logger.log(cf.Logger.DEBUG, "Got a new execution msg: %r" % (val))
