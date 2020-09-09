@@ -41,6 +41,7 @@ import codecs
 import six
 import re
 from future.utils import iteritems
+import copy
 
 ENVIRONMENTS = environments.ENVIRONMENTS
 ARTIBOT_USERNAME = "artibot"
@@ -52,6 +53,13 @@ LOCAL_GQL_FRAG = "%s:%s" % (LOCAL_GQL_HOST, LOCAL_GQL_PORT)
 GQL_PSK = os.environ.get("GQL_PSK", 'SAANPD00D')
 
 LOG_DIR = "/var/log/epiphani/"
+
+# AppMgr dictionary access lock
+APPMGR_LOCK = threading.Lock()
+
+# Subscriptions retry logic
+APPSYNC_SUB_RETRY_MAP = {}
+MAX_BACKOFF_TIME = 10
 
 class WorkerPool():
     def apply_async(self, t_func, t_args):
@@ -202,14 +210,21 @@ class Logger():
 def set_gql_psk(gql_psk):
     global GQL_PSK
     GQL_PSK = gql_psk
+    asm.set_gql_psk(gql_psk)
 
 def set_local_gql_host(lgh):
     global LOCAL_GQL_HOST
+    global LOCAL_GQL_FRAG
     LOCAL_GQL_HOST = lgh
+    LOCAL_GQL_FRAG = "%s:%s" % (LOCAL_GQL_HOST, LOCAL_GQL_PORT)
+    asm.set_local_gql_frag(LOCAL_GQL_FRAG)
 
 def set_local_gql_port(lgp):
     global LOCAL_GQL_PORT
+    global LOCAL_GQL_FRAG
     LOCAL_GQL_PORT = lgp
+    LOCAL_GQL_FRAG = "%s:%s" % (LOCAL_GQL_HOST, LOCAL_GQL_PORT)
+    asm.set_local_gql_frag(LOCAL_GQL_FRAG)
 
 def init_local_env(username):
     return {
@@ -259,17 +274,25 @@ def setup_env_and_subscribe(sub_list=None, appsync_sub_mgrs_map=None, logger=Non
     username_dict = {}
 
     # Setup vars for the environment
-    users = get_env_var(current_env, 'USERS')
-    gql_endpoint = get_env_var(current_env, "GRAPHQL_API_ENDPOINT")
+    if not use_local_instance:
+        users = get_env_var(current_env, 'USERS')
+        gql_endpoint = get_env_var(current_env, "GRAPHQL_API_ENDPOINT")
 
-    # Initialize the environment
-    init_environment(current_env, users, user_list, user_dict, username_dict, logger)
+        # Initialize the environment
+        init_environment(current_env, users, user_list, user_dict, username_dict, logger)
 
-    for tmp_user in users:
-        tmp_dict[tmp_user['username']] = tmp_user['auth'].id_token
+        for tmp_user in users:
+            tmp_dict[tmp_user['username']] = tmp_user['auth'].id_token
 
-    username = users[0]['username']
-    id_token = users[0]['auth'].id_token
+        username = users[0]['username']
+        id_token = users[0]['auth'].id_token
+    else:
+        users = []
+        gql_endpoint = "http://" + LOCAL_GQL_FRAG + "/graphql"
+        username = "admin"
+        id_token="NOT_ID_TOKEN_NEEDED"
+        asm.set_local_gql_frag(LOCAL_GQL_FRAG)
+        asm.set_gql_psk(GQL_PSK)
 
     check_and_subscribe(endpoint=gql_endpoint, endpoint_user_dict=tmp_dict,
         username=username, id_token=id_token, use_local_instance=use_local_instance,
@@ -288,7 +311,33 @@ def cf_on_close(cb_data):
     logger.log(Logger.INFO, "CF: Calling APP Socket 'on-close'")
     kwargs['on_close'](cb_data)
     logger.log(Logger.INFO, "CF: Cleaning up EP: %s" % (ep))
+    first_retry = False
+
+    APPMGR_LOCK.acquire()
+
     kwargs['appsync_sub_mgrs_map'].pop(ep, None)
+    retry_map = APPSYNC_SUB_RETRY_MAP.get(ep)
+
+    if not retry_map:
+        first_retry = True
+        retry_map = {'prev_ts': datetime.now(), 'backoff_time': 1}
+        APPSYNC_SUB_RETRY_MAP[ep] = retry_map
+
+    APPMGR_LOCK.release()
+
+    if not first_retry and retry_map['backoff_time'] < MAX_BACKOFF_TIME:
+        time_diff = int((datetime.now() - retry_map['prev_ts']).total_seconds())
+        if time_diff < retry_map['backoff_time']:
+            retry_map['backoff_time'] *= 2
+        elif time_diff > (MAX_BACKOFF_TIME * 10):
+            # If the last disconnect was more than 10 max backoff ago,
+            # then reset the backoff to default 1 second.
+            retry_map['backoff_time'] = 1
+        if retry_map['backoff_time'] > MAX_BACKOFF_TIME:
+            retry_map['backoff_time'] = MAX_BACKOFF_TIME
+    logger.log(Logger.INFO, "CF: Sleeping for %d seconds before retrying" % (retry_map['backoff_time']))
+    time.sleep(retry_map['backoff_time'])
+    retry_map['prev_ts'] = datetime.now()
 
     logger.log(Logger.INFO, "CF: Re-Subscribing EP: %s" % (ep))
     setup_env_and_subscribe(sub_list=kwargs['sub_list'],
@@ -725,6 +774,7 @@ def insert_obj(endpoint, id_token, model_name, obj,
 def update_obj(endpoint, id_token, model_name, obj,
     custom_query=None, mutations_module=None,
     use_local_instance=False):
+    vars = {}
     # Get the header
     auth_header = get_auth_header(id_token, use_local_instance=use_local_instance)
 
@@ -745,14 +795,18 @@ def update_obj(endpoint, id_token, model_name, obj,
 
     # Set the input for update object query
     if use_local_instance:
-        deleteList=['UsersCanView', 'UsersCanAccess', "GroupsCanView", 'GroupsCanAccess']
+        obj = copy.deepcopy(obj)
+        model_id = obj['id']
+        deleteList=['UsersCanView', 'UsersCanAccess', "GroupsCanView", 'GroupsCanAccess', 'id']
         for elem in deleteList:
             if elem in obj:
                 del obj[elem]
         # obj = add_model_mapping(model_name, obj)
         obj = add_model_relation(model_name, obj)
+        vars['where'] = {'id': model_id}
 
-    vars = {"input": obj}
+
+    vars["input"] = obj
 
     # Send the POST request.  All queries & mutations are sent
     # as a post request in aws-amplify/graphql, in JSON format.
