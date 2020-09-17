@@ -186,11 +186,12 @@ def parsePlaybook(args, pb):
         playDict[play['id']] = copy.deepcopy(arr)
         nda.append(arr)
     for ll in pb['links']:
-        fromPort = ""
+        fromPort = ll.get('fromPort', "")
         if (ll['from'] == "start" or ll['from'] == 'end'):
             fromPort = "B"
-        else:
+        elif (fromPort == ""):
             fromPort = "#003D7F"
+        
         ll['fromPort'] = fromPort
         ll['text'] = fromPort
         ll['toPort'] = "T"
