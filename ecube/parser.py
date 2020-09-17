@@ -112,6 +112,8 @@ If you set local_install_host or local_install_port, local_install is automatica
         pbc = s1.add_parser("create", help="create a playbook")
         pbc.add_argument('--directory', required=True, help='the path to the playbook')
         pbc.add_argument('--name',  dest="PBName", required=False, help='overwrite the name of the playbook in yaml')
+        pbcon = s1.add_parser("connectors", help="show the list of connectors")
+        pbcon.add_argument('--name',  dest="CName", required=False, help='Show details about connector')
 
         args = parser.parse_args(sys.argv[2:])
         self.addKeys(args)

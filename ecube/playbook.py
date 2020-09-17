@@ -26,6 +26,7 @@ import json
 import base64
 import zlib
 from tabulate import tabulate
+import yaml
 
 import ecube.gql as cf
 import ecube.playbook_create as pc
@@ -132,6 +133,30 @@ class Playbook(object):
             return None
         except Exception as e:
             self.logger.log(cf.Logger.ERROR, "findDummyInv: %r" % (e))
+
+    def connectors(self):
+        d = self.env
+        # try:
+        filter = None
+        if (self.args.CName):
+            filter = {'name': {'eq': self.args.CName}}
+
+        obj = cf.get_model_objects(d['endpoint'], d['id_token'], "Connectors", 
+                                    filter,
+                                    use_local_instance=self.local_install)
+        for val in obj:
+            if (val['commandsType'] == 'gzip/b64encoded'):
+                tb = cf.b64decode(val['commands'])
+                val['commands'] = json.loads(cf.gunzip_bytes(tb))
+            else:
+                val['commands'] = json.loads(val['commands'])
+            if (self.args.CName):
+                print(yaml.safe_dump(val))
+            else:
+                print("%s: " % val['name'])
+                for c in val['commands']: 
+                    print ("  %s: %s" % (c['name'], c['description']))
+    
 
     def findRunPlaybook(self):
         d = self.env
