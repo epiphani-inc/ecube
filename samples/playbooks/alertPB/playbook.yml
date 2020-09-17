@@ -1,0 +1,82 @@
+version: 1
+name: AlertRouterCLI17
+description: Alerts Router Playbook Created Via CLI 
+arguments: 
+  message: "string"
+plays: 
+  - 
+    id: one
+    name: Alert Router 
+    connector: Alerts - Parser
+    action: epiphani-parse-prometheus-alerts
+    arguments: 
+      alertMessage: '{{message}}'
+    rules:
+      vars: 
+        - 
+          matches:
+            -
+              Attribute: alerts labels alertname
+              Operator: "="
+              Value: PodHighCpuLoad
+              Type: string
+              ContextPath: alerts.labels.alertname
+          actions:
+            -
+              ActionType: Assign Path
+              Path: "green" 
+            -
+              ActionType: Store Column
+              ContextPath: alerts.labels.alertname
+              xVar: alerts labels alertname
+              xVarName: alertName
+              Path: ""
+            - 
+              ActionType: Store Column
+              ContextPath: alerts.annotations.message
+              xVar: alerts annotations message
+              xVarName: alertMessage
+              Path: ""
+            -
+              ActionType: Store Column
+              ContextPath: alerts.labels.pod
+              xVar: alerts labels pod
+              xVarName: alertPod
+              Path: ""
+          ctxPathList: 2
+  - 
+    id: two
+    name: CPU High Message 
+    action: message
+    connector: UserMessage 
+    arguments: 
+      message: "Received alert: {{alertMessage}} ; Stopping pod {{alertPod}}"
+  - 
+    id: three
+    name: Restart Pod Playbook
+    connector: NestedPlaybook
+    action: Include playbook
+    arguments:
+      nestedRbVars: '[{"alertPod": "{{alertPod}}"}]'
+      playbook: alertHandlerPB8
+  - 
+    id: start
+  -
+    id: end
+links:
+  -
+    from: start
+    to: one
+  - 
+    from: one
+    to: end
+  - 
+    from: one
+    to: two 
+    fromPort: "green"
+  - 
+    from: two
+    to: three
+  - 
+    from: three 
+    to: end 

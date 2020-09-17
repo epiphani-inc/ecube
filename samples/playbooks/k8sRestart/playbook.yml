@@ -1,0 +1,128 @@
+version: 1
+name: alertHandlerPB8
+description: Playbook to handle message from alert router playbook
+arguments:
+  alertPod: "string"
+plays: 
+  - 
+    id: one
+    name: K8s
+    connector: ssh
+    action: ssh
+    arguments: 
+      login-type: USER-SSH-KEY
+      ssh-host: sstash:k8s-host
+      username: ubuntu
+      ssh-key: sstash:k8s-sshkey
+      commands: '[{"command":"./get_pod.sh {{alertPod}}"}]'
+    rules:
+      vars:
+        - 
+          matches:
+            -
+              Attribute: Status.found
+              Operator: "="
+              Value: Found
+              Type: string
+              ContextPath: found
+              isFF: true
+          actions:
+            -
+              ActionType: Assign Path
+              Path: "green"
+          ctxPathList: 3
+      ffvars:
+        -
+          matchBlock: "Result of kubectl get command: {{found}}"
+          xVar:
+            type: list
+            description: Output of ssh commands
+            contextPath: ssh.output
+          xVarName: Status
+  - 
+    id: two
+    name: Pod Not Found
+    action: message
+    connector: UserMessage 
+    arguments: 
+      message: "Error trying to restart pod {{alertPod}}. Pod not found" 
+  -
+    id: three
+    name: Message Restarting
+    action: message
+    connector: UserMessage 
+    arguments: 
+      message: "Found Pod {{alertPod}}. Restarting to recover"
+  - 
+    id: four
+    name: Restart Pod
+    connector: ssh
+    action: ssh
+    arguments: 
+      login-type: USER-SSH-KEY
+      ssh-host: sstash:k8s-host
+      username: ubuntu
+      ssh-key: sstash:k8s-sshkey
+      commands: '[{"command":"./restart_pod.sh {{alertPod}} "}]'
+  - 
+    id: five
+    name: Get Pod List
+    connector: ssh
+    action: ssh
+    arguments: 
+      login-type: USER-SSH-KEY
+      ssh-host: sstash:k8s-host
+      username: ubuntu
+      ssh-key: sstash:k8s-sshkey
+      commands: '[{"command":"./list_pods.sh"}]'
+    rules:
+      vars:
+        -
+          actions:
+            -
+              ActionType: Store Rows
+              VarName: getPodOutput
+          ctxPathList: 1
+  - 
+    id: six
+    name: Notify On Call
+    connector: PagerDuty v2
+    action: PagerDuty-submit-event
+    config:
+      APIKey: sstash:pg-apikey
+      ServiceKey: sstash:pg-servicekey
+      FetchInterval: "1"
+    arguments: 
+      source: ArtiBot
+      summary: '"Problem: {{EPI_HumanID}} {{EPI_title}}"'
+      severity: critical
+      action: trigger
+      description: "Hish CPU Usage in K8s POD {{alertPod}} \\n Rstarted Pod. \\n New Pod List:  \\n {{getPodOutput}}"
+      serviceKey: sstash:pg-servicekey
+  -    
+    id: start
+  -
+    id: end
+links:
+  -
+    from: start
+    to: one
+  -
+    from: one
+    to: two
+  -
+    from: one
+    to: three
+    fromPort: "green"
+  -
+    from: three
+    to: four
+  -
+    from: four
+    to: five
+  -
+    from: five
+    to: six
+  -
+    from: six
+    to: end
