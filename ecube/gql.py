@@ -641,25 +641,25 @@ def convert_filter(aws_filter):
             continue
         for (k, v) in iteritems(value):
             if k == 'eq':
-                new_key = key + '_' + k
+                new_key = key
             elif k == 'ne':
-                new_key = key + '_not' + k
-            elif k == 'le':
-                new_key = key + '_le' + k
+                new_key = key + '_not'
             elif k == 'lt':
-                new_key = key + '_lt' + k
+                new_key = key + '_lt'
+            elif k == 'lte':
+                new_key = key + '_lte'
             elif k == 'gt':
-                new_key = key + '_gt' + k
-            elif k == 'ge':
-                new_key = key + '_ge' + k
-            elif k == 'contains':  
-                new_key = key + '_contains' + k
+                new_key = key + '_gt'
+            elif k == 'gte':
+                new_key = key + '_gte'
+            elif k == 'contains':
+                new_key = key + '_contains'
             elif k == 'notContains':
-                new_key = key + '_not_contains' + k
+                new_key = key + '_not_contains'
             elif k == 'between':
-                new_key = key +'_not_starts_with' + k
+                new_key = key +'_not_starts_with'
             elif k == 'beginsWith':
-                new_key = key +'_starts_with' + k
+                new_key = key +'_starts_with'
             else:
                 new_key = key
             local_filter[new_key] = v
@@ -945,7 +945,7 @@ def get_objs(endpoint, starting_from, id_token, model_name, filter,
     vars = {}
     if use_local_instance:
         if filter:
-            vars['where'] = convert_filter(filter)
+            vars['filter'] = convert_filter(filter)
         vars['skip'] = starting_from
         vars['take'] = limit_count
     else:
