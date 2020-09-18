@@ -114,6 +114,9 @@ If you set local_install_host or local_install_port, local_install is automatica
         pbc.add_argument('--name',  dest="PBName", required=False, help='overwrite the name of the playbook in yaml')
         pbcon = s1.add_parser("connectors", help="show the list of connectors")
         pbcon.add_argument('--name',  dest="CName", required=False, help='Show details about connector')
+        pbres = s1.add_parser("results", help="show the output of the playbook executed")
+        pbres.add_argument('--name',  dest="PBName", required=True, help='the result of this playbook')
+        pbres.add_argument('--json',  type=bool, required=False, help='output only json', default=False)
 
         args = parser.parse_args(sys.argv[2:])
         self.addKeys(args)

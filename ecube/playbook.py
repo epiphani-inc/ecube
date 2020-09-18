@@ -134,6 +134,25 @@ class Playbook(object):
         except Exception as e:
             self.logger.log(cf.Logger.ERROR, "findDummyInv: %r" % (e))
 
+    def results(self):
+        d = self.env
+        # try:
+        filter = None
+        if (self.args.PBName):
+            filter = {'title': {'eq': self.args.PBName}}
+
+        obj = cf.get_model_objects(d['endpoint'], d['id_token'], "ExecutedRunbooks", 
+                                    filter,
+                                    use_local_instance=self.local_install)
+        for pb in obj:
+            print(pb['state'], ":", pb['updatedAt'])
+            state = pb['state']
+            if (state != "new" and state != "processing"):
+                op = pb['output']
+                if (pb['outputType'] == "gzip/b64encoded"):
+                    op = zlib.decompress(base64.b64decode(op))
+                self.printOutput(op)
+
     def connectors(self):
         d = self.env
         # try:

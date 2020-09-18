@@ -12,8 +12,8 @@ plays:
     arguments: 
       region: '{{region}}'
     config: 
-      access_key: AKIAT3NPENAZNBW4HKVH
-      secret_key: 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 
+      access_key: <>
+      secret_key: <>
       defaultRegion: '{{region}}'
     rules:
       vars: 
