@@ -117,7 +117,10 @@ If you set local_install_host or local_install_port, local_install is automatica
         pbres = s1.add_parser("results", help="show the output of the playbook executed")
         pbres.add_argument('--name',  dest="PBName", required=True, help='the result of this playbook')
         pbres.add_argument('--json',  type=bool, required=False, help='output only json', default=False)
-
+        pbstash = s1.add_parser("stash", help="Add entries to stash")
+        pbstash.add_argument('--name',  dest="KName", required=True, help='Key name to store as in secure stash')
+        pbstash.add_argument('--kube-config-file',  dest="Kcfg", required=False, help='Path to kube config file')
+        pbstash.add_argument('--aws-credentials-file',  dest="AwsCreds", required=False, help='Path to aws credentials file')
         args = parser.parse_args(sys.argv[2:])
         self.addKeys(args)
         playBook(args)
